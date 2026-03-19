@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --cream: #FAF7F2;
+  --warm-white: #F5EFE6;
+  --parchment: #EDE4D6;
+  --terracotta: #C4622D;
+  --terracotta-light: #D4845A;
+  --terracotta-dark: #9A4820;
+  --sage: #7B9E87;
+  --sage-light: #A8C4B0;
+  --charcoal: #2C2416;
+  --warm-gray: #8A7E74;
+  --amber: #E8A44A;
+  --blush: #E8C4B0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--cream);
+  color: var(--charcoal);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Grain overlay utility */
+.grain-overlay::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.35;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--warm-white);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--blush);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--terracotta-light);
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-terracotta text-cream font-body font-medium px-6 py-3 rounded-full
+           transition-all duration-200 hover:bg-terracotta-dark active:scale-95
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply text-warm-gray font-body font-medium px-6 py-3 rounded-full
+           transition-all duration-200 hover:text-charcoal hover:bg-parchment
+           active:scale-95;
+  }
+
+  .card {
+    @apply bg-warm-white rounded-2xl border border-parchment;
+  }
+
+  .input-field {
+    @apply w-full bg-cream border border-parchment rounded-xl px-4 py-3
+           font-body text-charcoal placeholder:text-warm-gray-light
+           focus:outline-none focus:border-terracotta-light focus:ring-2
+           focus:ring-terracotta/10 transition-all duration-200;
+  }
+
+  .label {
+    @apply block font-body text-sm font-medium text-warm-gray mb-1.5 tracking-wide;
+  }
+}
