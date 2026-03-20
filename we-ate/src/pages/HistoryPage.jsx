@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Calendar } from 'lucide-react'
+import { Calendar, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import PageHeader from '../components/PageHeader'
 import BottomNav from '../components/BottomNav'
@@ -45,6 +45,68 @@ function MacroCell({ row, accent }) {
   )
 }
 
+function HistoryRow({ date, people, i, onDeleted }) {
+  const [confirming, setConfirming] = useState(false)
+  const [deleting,   setDeleting]   = useState(false)
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    await supabase.from('daily_history').delete().eq('date', date)
+    onDeleted()
+  }
+
+  return (
+    <motion.tr
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: i * 0.03 }}
+      className={`border-b border-parchment/60 last:border-0 group ${
+        i % 2 === 0 ? 'bg-transparent' : 'bg-warm-white/50'
+      }`}
+    >
+      {/* Date cell — holds the delete control */}
+      <td className="px-4 py-4 align-top">
+        {confirming ? (
+          <div className="flex flex-col gap-1">
+            <p className="font-body text-xs text-warm-gray">Delete this day?</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="font-body text-xs font-medium text-terracotta hover:text-terracotta-dark transition-colors disabled:opacity-50"
+              >
+                {deleting ? '…' : 'Yes, delete'}
+              </button>
+              <button
+                onClick={() => setConfirming(false)}
+                className="font-body text-xs text-warm-gray hover:text-charcoal transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <p className="font-body text-sm font-medium text-charcoal whitespace-nowrap">
+              {formatDate(date)}
+            </p>
+            <button
+              onClick={() => setConfirming(true)}
+              className="opacity-0 group-hover:opacity-100 transition-all w-6 h-6 rounded-md flex items-center justify-center text-warm-gray hover:text-terracotta hover:bg-terracotta/8 shrink-0"
+              aria-label={`Delete ${formatDate(date)}`}
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+        )}
+      </td>
+
+      <MacroCell row={people.kat}      accent={USER_META.kat.accent} />
+      <MacroCell row={people.jeremiah} accent={USER_META.jeremiah.accent} />
+    </motion.tr>
+  )
+}
+
 function EmptyState() {
   return (
     <motion.div
@@ -64,18 +126,19 @@ function EmptyState() {
 }
 
 export default function HistoryPage() {
-  const [rows, setRows]       = useState([])
+  const [rows,    setRows]    = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchRows = () => {
     supabase
       .from('daily_history')
       .select('*')
       .order('date', { ascending: false })
       .then(({ data }) => { setRows(data ?? []); setLoading(false) })
-  }, [])
+  }
 
-  // Group by date → { date: { kat: row|null, jeremiah: row|null } }
+  useEffect(() => { fetchRows() }, [])
+
   const grouped = useMemo(() => {
     const map = {}
     rows.forEach((r) => {
@@ -130,23 +193,13 @@ export default function HistoryPage() {
                 </thead>
                 <tbody>
                   {grouped.map(([date, people], i) => (
-                    <motion.tr
+                    <HistoryRow
                       key={date}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2, delay: i * 0.03 }}
-                      className={`border-b border-parchment/60 last:border-0 ${
-                        i % 2 === 0 ? 'bg-transparent' : 'bg-warm-white/50'
-                      }`}
-                    >
-                      <td className="px-4 py-4 align-top">
-                        <p className="font-body text-sm font-medium text-charcoal whitespace-nowrap">
-                          {formatDate(date)}
-                        </p>
-                      </td>
-                      <MacroCell row={people.kat}      accent={USER_META.kat.accent} />
-                      <MacroCell row={people.jeremiah} accent={USER_META.jeremiah.accent} />
-                    </motion.tr>
+                      date={date}
+                      people={people}
+                      i={i}
+                      onDeleted={fetchRows}
+                    />
                   ))}
                 </tbody>
               </table>
