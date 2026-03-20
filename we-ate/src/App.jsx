@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import UserSelectPage from './pages/UserSelectPage'
 import TrackingPage from './pages/TrackingPage'
 import RecipeLibraryPage from './pages/RecipeLibraryPage'
+import SettingsPage from './pages/SettingsPage'
 
 function LoadingScreen() {
   return (
@@ -58,6 +59,16 @@ function AppRoutes() {
             : !activeUser
               ? <Navigate to="/select" replace />
               : <RecipeLibraryPage />
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          !session
+            ? <Navigate to="/login" replace />
+            : !activeUser
+              ? <Navigate to="/select" replace />
+              : <SettingsPage />
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />

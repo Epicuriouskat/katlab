@@ -5,6 +5,7 @@ import { useAuth } from '../components/AuthProvider'
 import { supabase } from '../lib/supabase'
 import { useDailyLog, getEntryNutrition, computeTotals, useMidnightReset, getLocalDate } from '../hooks/useDailyLog'
 import { useRecipes, useQuickItems } from '../hooks/useRecipes'
+import { useTargets } from '../hooks/useTargets'
 import AddLogEntryModal from '../components/AddLogEntryModal'
 import BottomNav from '../components/BottomNav'
 
@@ -17,11 +18,6 @@ const MEAL_SLOTS = [
   { id: 'snacks',    label: 'Snacks',    emoji: '🍎'  },
 ]
 
-// Edit these to match each person's daily targets
-const DAILY_TARGETS = {
-  kat:      { calories: 1800, protein: 130, carbs: 160, fat: 60  },
-  jeremiah: { calories: 2400, protein: 200, carbs: 220, fat: 80  },
-}
 
 const USER_META = {
   kat:      { name: 'Kat',      initial: 'K', accent: '#C4622D', accentBg: '#F5E4D8' },
@@ -77,9 +73,9 @@ function MacroBar({ label, value, target, unit }) {
 
 // ── MacroTotals ───────────────────────────────────────────────────────────────
 
-function MacroTotals({ entries, person }) {
-  const totals  = useMemo(() => computeTotals(entries), [entries])
-  const targets = DAILY_TARGETS[person] ?? DAILY_TARGETS.kat
+function MacroTotals({ entries, person, allTargets }) {
+  const totals   = useMemo(() => computeTotals(entries), [entries])
+  const targets  = allTargets[person] ?? { calories: 2000, protein: 150, carbs: 200, fat: 65 }
   const calPct  = targets.calories > 0 ? (totals.calories / targets.calories) * 100 : 0
   const calColor = calPct > 100 ? '#EF4444' : calPct > 90 ? '#F59E0B' : '#2C2416'
 
@@ -206,7 +202,7 @@ function MealSlot({ slot, entries, accent, onAdd, onRefetch }) {
 
 // ── Person column ─────────────────────────────────────────────────────────────
 
-function PersonColumn({ person, entries, onAdd, onRefetch }) {
+function PersonColumn({ person, entries, onAdd, onRefetch, allTargets }) {
   const meta = USER_META[person]
   const personEntries = useMemo(() => entries.filter((e) => e.person === person), [entries, person])
   const getSlotEntries = (slotId) => personEntries.filter((e) => e.meal_slot === slotId)
@@ -227,7 +223,7 @@ function PersonColumn({ person, entries, onAdd, onRefetch }) {
       </div>
 
       {/* Totals + progress bars */}
-      <MacroTotals entries={personEntries} person={person} />
+      <MacroTotals entries={personEntries} person={person} allTargets={allTargets} />
 
       {/* Meal slots */}
       <div className="mt-5">
@@ -257,8 +253,9 @@ export default function TrackingPage() {
   const currentDate = useMidnightReset()
 
   const { entries, loading, refetch: refetchLog } = useDailyLog(currentDate)
-  const { recipes }    = useRecipes()
-  const { quickItems } = useQuickItems()
+  const { recipes }              = useRecipes()
+  const { quickItems }           = useQuickItems()
+  const { targets: allTargets }  = useTargets()
 
   const user = USER_META[activeUser] ?? USER_META.kat
 
@@ -371,6 +368,7 @@ export default function TrackingPage() {
                 entries={entries}
                 onAdd={openAdd}
                 onRefetch={refetchLog}
+                allTargets={allTargets}
               />
             </div>
 
@@ -385,6 +383,7 @@ export default function TrackingPage() {
                 entries={entries}
                 onAdd={openAdd}
                 onRefetch={refetchLog}
+                allTargets={allTargets}
               />
             </div>
 

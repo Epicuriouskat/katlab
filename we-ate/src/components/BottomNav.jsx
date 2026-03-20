@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, BookOpen } from 'lucide-react'
+import { LayoutDashboard, BookOpen, SlidersHorizontal } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { to: '/',        label: 'Today',   Icon: LayoutDashboard },
-  { to: '/library', label: 'Recipes', Icon: BookOpen },
+  { to: '/',         label: 'Today',   Icon: LayoutDashboard },
+  { to: '/library',  label: 'Recipes', Icon: BookOpen },
+  { to: '/settings', label: 'Settings', Icon: SlidersHorizontal },
 ]
 
 export default function BottomNav() {
