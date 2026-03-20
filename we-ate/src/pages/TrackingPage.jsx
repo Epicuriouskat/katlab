@@ -226,20 +226,22 @@ function PersonColumn({ person, entries, onAdd, onRefetch }) {
         </h2>
       </div>
 
-      {/* Meal slots */}
-      {MEAL_SLOTS.map((slot) => (
-        <MealSlot
-          key={slot.id}
-          slot={slot}
-          entries={getSlotEntries(slot.id)}
-          accent={meta.accent}
-          onAdd={() => onAdd(person, slot.id)}
-          onRefetch={onRefetch}
-        />
-      ))}
-
       {/* Totals + progress bars */}
       <MacroTotals entries={personEntries} person={person} />
+
+      {/* Meal slots */}
+      <div className="mt-5">
+        {MEAL_SLOTS.map((slot) => (
+          <MealSlot
+            key={slot.id}
+            slot={slot}
+            entries={getSlotEntries(slot.id)}
+            accent={meta.accent}
+            onAdd={() => onAdd(person, slot.id)}
+            onRefetch={onRefetch}
+          />
+        ))}
+      </div>
     </div>
   )
 }
