@@ -6,6 +6,7 @@ import { useRecipes, useQuickItems } from '../hooks/useRecipes'
 import RecipeCard from '../components/RecipeCard'
 import RecipeFormModal from '../components/RecipeFormModal'
 import QuickItemFormModal from '../components/QuickItemFormModal'
+import PageHeader from '../components/PageHeader'
 import BottomNav from '../components/BottomNav'
 
 // ── Quick item row ─────────────────────────────────────────────────────────
@@ -151,26 +152,27 @@ export default function RecipeLibraryPage() {
 
   return (
     <div className="min-h-screen bg-cream grain-overlay pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-cream/90 border-b border-parchment backdrop-blur-sm">
-        <div className="max-w-2xl mx-auto px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="font-display text-2xl font-light text-charcoal italic">
-              We <span className="text-terracotta not-italic font-medium">Ate</span>
-            </h1>
-            <button
-              onClick={tab === 'recipes' ? openAddRecipe : openAddQuick}
-              className="btn-primary py-2 text-sm flex items-center gap-1.5"
-            >
-              <Plus size={15} />
-              {tab === 'recipes' ? 'New recipe' : 'New item'}
-            </button>
-          </div>
 
-          {/* Tabs */}
+      {/* Brand header */}
+      <PageHeader
+        subtitle={tab === 'recipes' ? 'Recipes' : 'Quick items'}
+        maxWidth="max-w-2xl"
+      >
+        <button
+          onClick={tab === 'recipes' ? openAddRecipe : openAddQuick}
+          className="btn-primary py-2 text-sm"
+        >
+          <Plus size={15} />
+          {tab === 'recipes' ? 'New recipe' : 'New item'}
+        </button>
+      </PageHeader>
+
+      {/* Tabs + search — stick just below the brand header */}
+      <div className="sticky top-14 z-30 bg-cream/95 border-b border-parchment backdrop-blur-sm">
+        <div className="max-w-2xl mx-auto px-4 pt-3 pb-3">
           <div className="flex gap-1 bg-parchment/60 rounded-xl p-1 mb-3">
             {[
-              { id: 'recipes', label: 'Recipes', Icon: BookOpen },
+              { id: 'recipes', label: 'Recipes',     Icon: BookOpen },
               { id: 'quick',   label: 'Quick items', Icon: Zap },
             ].map(({ id, label, Icon }) => (
               <button
@@ -188,7 +190,6 @@ export default function RecipeLibraryPage() {
             ))}
           </div>
 
-          {/* Search */}
           <div className="relative">
             <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-warm-gray-light" />
             <input
@@ -196,7 +197,7 @@ export default function RecipeLibraryPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={tab === 'recipes' ? 'Search recipes…' : 'Search quick items…'}
-              className="input-field pl-9 pr-9 py-2.5 text-sm"
+              className="input-field pl-9 pr-9 py-2.5"
             />
             {search && (
               <button
@@ -208,7 +209,7 @@ export default function RecipeLibraryPage() {
             )}
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Content */}
       <main className="max-w-2xl mx-auto px-4 py-4">

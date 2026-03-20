@@ -5,6 +5,8 @@ import UserSelectPage from './pages/UserSelectPage'
 import TrackingPage from './pages/TrackingPage'
 import RecipeLibraryPage from './pages/RecipeLibraryPage'
 import SettingsPage from './pages/SettingsPage'
+import HistoryPage from './pages/HistoryPage'
+import WeightPage from './pages/WeightPage'
 
 function LoadingScreen() {
   return (
@@ -69,6 +71,26 @@ function AppRoutes() {
             : !activeUser
               ? <Navigate to="/select" replace />
               : <SettingsPage />
+        }
+      />
+      <Route
+        path="/history"
+        element={
+          !session
+            ? <Navigate to="/login" replace />
+            : !activeUser
+              ? <Navigate to="/select" replace />
+              : <HistoryPage />
+        }
+      />
+      <Route
+        path="/weight"
+        element={
+          !session
+            ? <Navigate to="/login" replace />
+            : !activeUser
+              ? <Navigate to="/select" replace />
+              : <WeightPage />
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -8,18 +8,19 @@
   --parchment: #EDE4D6;
   --terracotta: #C4622D;
   --terracotta-light: #D4845A;
+  --terracotta-lighter: #E8B49A;
   --terracotta-dark: #9A4820;
   --sage: #7B9E87;
   --sage-light: #A8C4B0;
+  --sage-dark: #5A7D68;
   --charcoal: #2C2416;
   --warm-gray: #8A7E74;
+  --warm-gray-light: #C5BBAF;
   --amber: #E8A44A;
   --blush: #E8C4B0;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 html, body, #root {
   height: 100%;
@@ -34,7 +35,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Grain overlay utility */
+/* Grain overlay — multiply blend reads as texture, not noise */
 .grain-overlay::after {
   content: '';
   position: fixed;
@@ -42,49 +43,78 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.35;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--warm-white);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--blush);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--terracotta-light);
-}
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--blush); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--terracotta-light); }
+
+/* Selection */
+::selection { background: #F5E4D8; color: var(--terracotta-dark); }
 
 @layer components {
+
+  /* Primary action button */
   .btn-primary {
-    @apply bg-terracotta text-cream font-body font-medium px-6 py-3 rounded-full
-           transition-all duration-200 hover:bg-terracotta-dark active:scale-95
-           disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-1.5
+           bg-terracotta text-cream font-body font-medium
+           px-6 py-3 rounded-full
+           transition-all duration-200
+           hover:bg-terracotta-dark hover:-translate-y-px hover:shadow-md
+           active:scale-[0.97] active:translate-y-0
+           disabled:opacity-50 disabled:cursor-not-allowed
+           disabled:hover:translate-y-0 disabled:hover:shadow-none;
+    letter-spacing: 0.015em;
   }
 
+  /* Ghost / secondary button */
   .btn-ghost {
-    @apply text-warm-gray font-body font-medium px-6 py-3 rounded-full
-           transition-all duration-200 hover:text-charcoal hover:bg-parchment
-           active:scale-95;
+    @apply inline-flex items-center justify-center gap-1.5
+           text-warm-gray font-body font-medium
+           px-5 py-2.5 rounded-full
+           bg-warm-white border border-parchment
+           transition-all duration-200
+           hover:text-charcoal hover:border-warm-gray-light
+           active:scale-[0.97];
   }
 
+  /* Content card */
   .card {
-    @apply bg-warm-white rounded-2xl border border-parchment;
+    @apply bg-warm-white rounded-2xl border border-parchment/80;
+    box-shadow: 0 1px 2px rgba(44, 36, 22, 0.04), 0 4px 12px rgba(44, 36, 22, 0.05);
   }
 
+  /* Input field */
   .input-field {
     @apply w-full bg-cream border border-parchment rounded-xl px-4 py-3
-           font-body text-charcoal placeholder:text-warm-gray-light
-           focus:outline-none focus:border-terracotta-light focus:ring-2
-           focus:ring-terracotta/10 transition-all duration-200;
+           font-body text-sm text-charcoal placeholder:text-warm-gray-light
+           transition-all duration-200;
+    caret-color: var(--terracotta);
+    outline: none;
+  }
+  .input-field:focus {
+    border-color: var(--terracotta-lighter);
+    box-shadow: 0 0 0 3px rgba(196, 98, 45, 0.09);
   }
 
+  /* Form labels — small, uppercase, tracking */
   .label {
-    @apply block font-body text-sm font-medium text-warm-gray mb-1.5 tracking-wide;
+    @apply block font-body text-xs font-medium text-warm-gray mb-1.5
+           tracking-widest uppercase;
   }
+
+  /* Eyebrow text — used for section labels, page subtitles */
+  .eyebrow {
+    @apply font-body text-[10px] font-medium text-warm-gray tracking-widest uppercase;
+  }
+
+  /* Inline loading spinner */
+  .spinner {
+    @apply w-5 h-5 rounded-full border-2 border-parchment border-t-terracotta animate-spin;
+  }
+
 }

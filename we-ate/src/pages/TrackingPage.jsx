@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LogOut, Plus, X } from 'lucide-react'
-import { useAuth } from '../components/AuthProvider'
+import { Plus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import PageHeader from '../components/PageHeader'
 import { useDailyLog, getEntryNutrition, computeTotals, useMidnightReset, getLocalDate } from '../hooks/useDailyLog'
 import { useRecipes, useQuickItems } from '../hooks/useRecipes'
 import { useTargets } from '../hooks/useTargets'
@@ -245,7 +245,6 @@ function PersonColumn({ person, entries, onAdd, onRefetch, allTargets }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function TrackingPage() {
-  const { activeUser, signOut, setActiveUser } = useAuth()
   const [mobilePerson, setMobilePerson] = useState('kat')
   const [addModal, setAddModal] = useState({ open: false, person: null, slot: null })
 
@@ -256,8 +255,6 @@ export default function TrackingPage() {
   const { recipes }              = useRecipes()
   const { quickItems }           = useQuickItems()
   const { targets: allTargets }  = useTargets()
-
-  const user = USER_META[activeUser] ?? USER_META.kat
 
   const openAdd  = (person, slot) => setAddModal({ open: true, person, slot })
   const closeAdd = ()              => setAddModal({ open: false, person: null, slot: null })
@@ -277,52 +274,19 @@ export default function TrackingPage() {
   return (
     <div className="min-h-screen bg-cream grain-overlay pb-20">
 
-      {/* Sticky header */}
-      <header className="sticky top-0 z-40 bg-cream/90 border-b border-parchment backdrop-blur-sm">
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="leading-none">
-            <h1 className="font-display text-xl font-light text-charcoal italic">
-              We <span className="text-terracotta not-italic font-medium">Ate</span>
-            </h1>
-            <p className="font-body text-[10px] text-warm-gray mt-0.5">
-              {formatDisplayDate(currentDate)}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {import.meta.env.DEV && (
-              <button
-                onClick={simulateMidnight}
-                disabled={simulating}
-                title="Simulate midnight reset (dev only)"
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-body font-medium transition-all border border-amber/40 bg-amber/10 text-amber hover:bg-amber/20 disabled:opacity-50"
-              >
-                <span className="font-body text-[9px] font-bold tracking-widest uppercase bg-amber/20 px-1 py-0.5 rounded">dev</span>
-                {simulating ? 'Saving…' : '⟳ Midnight'}
-              </button>
-            )}
-            <button
-              onClick={() => setActiveUser(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warm-white border border-parchment hover:border-warm-gray-light transition-all text-xs font-body text-warm-gray hover:text-charcoal"
-            >
-              <div
-                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-display italic"
-                style={{ backgroundColor: user.accent }}
-              >
-                {user.initial}
-              </div>
-              {user.name}
-            </button>
-            <button
-              onClick={signOut}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-warm-gray hover:text-charcoal hover:bg-parchment transition-all"
-              aria-label="Sign out"
-            >
-              <LogOut size={15} />
-            </button>
-          </div>
-        </div>
-      </header>
+      <PageHeader subtitle={formatDisplayDate(currentDate)} maxWidth="max-w-4xl">
+        {import.meta.env.DEV && (
+          <button
+            onClick={simulateMidnight}
+            disabled={simulating}
+            title="Simulate midnight reset (dev only)"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-body font-medium transition-all border border-amber/40 bg-amber/10 text-amber hover:bg-amber/20 disabled:opacity-50"
+          >
+            <span className="font-body text-[9px] font-bold tracking-widest uppercase bg-amber/20 px-1 py-0.5 rounded">dev</span>
+            {simulating ? 'Saving…' : '⟳ Midnight'}
+          </button>
+        )}
+      </PageHeader>
 
       {/* Mobile person toggle */}
       <div className="md:hidden px-4 pt-3">
