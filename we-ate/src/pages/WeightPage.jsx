@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { Scale } from 'lucide-react'
+import { Scale, Pencil, Trash2, Check, X as XIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getLocalDate } from '../hooks/useDailyLog'
 import PageHeader from '../components/PageHeader'
@@ -202,6 +202,154 @@ function WeightEntryForm({ person, personRows, onSaved }) {
   )
 }
 
+// ── Weight table cell with inline edit / delete ───────────────────────────────
+
+function WeightCell({ row, accent, onRefetch }) {
+  const today = getLocalDate()
+
+  const [editing,    setEditing]    = useState(false)
+  const [editDate,   setEditDate]   = useState('')
+  const [editValue,  setEditValue]  = useState('')
+  const [saving,     setSaving]     = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [deleting,   setDeleting]   = useState(false)
+
+  const startEdit = () => {
+    setEditDate(row.date)
+    setEditValue(String(row.weight_lbs))
+    setEditing(true)
+  }
+
+  const handleSave = async () => {
+    if (!editValue) return
+    setSaving(true)
+    if (editDate === row.date) {
+      await supabase.from('weight_log').update({ weight_lbs: Number(editValue) }).eq('id', row.id)
+    } else {
+      // Date changed: delete old entry, upsert at new date (handles conflicts)
+      await supabase.from('weight_log').delete().eq('id', row.id)
+      await supabase
+        .from('weight_log')
+        .upsert({ date: editDate, person: row.person, weight_lbs: Number(editValue) }, { onConflict: 'date,person' })
+    }
+    setSaving(false)
+    setEditing(false)
+    onRefetch()
+  }
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    await supabase.from('weight_log').delete().eq('id', row.id)
+    onRefetch()
+  }
+
+  if (!row) {
+    return (
+      <td className="px-4 py-3 align-middle">
+        <span className="font-body text-sm text-warm-gray-light">—</span>
+      </td>
+    )
+  }
+
+  if (editing) {
+    return (
+      <td className="px-4 py-3 align-middle">
+        <div className="flex flex-col gap-1.5">
+          <input
+            type="date"
+            max={today}
+            value={editDate}
+            onChange={(e) => setEditDate(e.target.value)}
+            className="input-field py-1.5 px-2.5 text-xs"
+          />
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              min="50"
+              max="600"
+              step="0.1"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter')  handleSave()
+                if (e.key === 'Escape') setEditing(false)
+              }}
+              placeholder="lbs"
+              className="input-field py-1.5 px-2.5 text-xs w-20"
+              autoFocus
+            />
+            <button
+              onClick={handleSave}
+              disabled={saving || !editValue}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-40 shrink-0 hover:brightness-90"
+              style={{ backgroundColor: accent }}
+              aria-label="Save"
+            >
+              {saving
+                ? <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                : <Check size={12} />
+              }
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-warm-gray hover:text-charcoal hover:bg-parchment transition-all shrink-0"
+              aria-label="Cancel"
+            >
+              <XIcon size={12} />
+            </button>
+          </div>
+        </div>
+      </td>
+    )
+  }
+
+  return (
+    <td className="px-4 py-3 align-middle group">
+      {confirming ? (
+        <div className="flex items-center gap-2">
+          <span className="font-body text-xs text-warm-gray">Remove?</span>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="font-body text-xs font-medium text-terracotta hover:text-terracotta-dark transition-colors disabled:opacity-50"
+          >
+            {deleting ? '…' : 'Yes'}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            className="font-body text-xs text-warm-gray hover:text-charcoal transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5">
+          <span className="font-display text-xl font-medium leading-none" style={{ color: accent }}>
+            {Number(row.weight_lbs).toFixed(1)}
+            <span className="font-body text-xs text-warm-gray font-normal ml-1">lbs</span>
+          </span>
+          <div className="flex gap-0.5 ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <button
+              onClick={startEdit}
+              className="w-6 h-6 rounded-md flex items-center justify-center text-warm-gray hover:text-charcoal hover:bg-parchment transition-all"
+              aria-label="Edit entry"
+            >
+              <Pencil size={11} />
+            </button>
+            <button
+              onClick={() => setConfirming(true)}
+              className="w-6 h-6 rounded-md flex items-center justify-center text-warm-gray hover:text-terracotta hover:bg-terracotta/8 transition-all"
+              aria-label="Delete entry"
+            >
+              <Trash2 size={11} />
+            </button>
+          </div>
+        </div>
+      )}
+    </td>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function WeightPage() {
@@ -309,7 +457,7 @@ export default function WeightPage() {
               className="card overflow-hidden"
             >
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[380px] border-collapse">
+                <table className="w-full min-w-[480px] border-collapse">
                   <thead>
                     <tr className="border-b border-parchment">
                       <th className="px-4 py-3 text-left eyebrow w-36">Date</th>
@@ -336,17 +484,12 @@ export default function WeightPage() {
                           </p>
                         </td>
                         {['kat', 'jeremiah'].map(person => (
-                          <td key={person} className="px-4 py-3 align-middle">
-                            {people[person] ? (
-                              <span className="font-display text-xl font-medium leading-none"
-                                style={{ color: USER_META[person].accent }}>
-                                {Number(people[person].weight_lbs).toFixed(1)}
-                                <span className="font-body text-xs text-warm-gray font-normal ml-1">lbs</span>
-                              </span>
-                            ) : (
-                              <span className="font-body text-sm text-warm-gray-light">—</span>
-                            )}
-                          </td>
+                          <WeightCell
+                            key={person}
+                            row={people[person]}
+                            accent={USER_META[person].accent}
+                            onRefetch={fetchRows}
+                          />
                         ))}
                       </motion.tr>
                     ))}
