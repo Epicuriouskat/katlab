@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './components/AuthProvider'
 import LoginPage from './pages/LoginPage'
 import UserSelectPage from './pages/UserSelectPage'
-import DashboardPage from './pages/DashboardPage'
+import TrackingPage from './pages/TrackingPage'
 import RecipeLibraryPage from './pages/RecipeLibraryPage'
 
 function LoadingScreen() {
@@ -47,7 +47,7 @@ function AppRoutes() {
             ? <Navigate to="/login" replace />
             : !activeUser
               ? <Navigate to="/select" replace />
-              : <DashboardPage />
+              : <TrackingPage />
         }
       />
       <Route
