@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './components/AuthProvider'
 import LoginPage from './pages/LoginPage'
 import UserSelectPage from './pages/UserSelectPage'
 import DashboardPage from './pages/DashboardPage'
+import RecipeLibraryPage from './pages/RecipeLibraryPage'
 
 function LoadingScreen() {
   return (
@@ -47,6 +48,16 @@ function AppRoutes() {
             : !activeUser
               ? <Navigate to="/select" replace />
               : <DashboardPage />
+        }
+      />
+      <Route
+        path="/library"
+        element={
+          !session
+            ? <Navigate to="/login" replace />
+            : !activeUser
+              ? <Navigate to="/select" replace />
+              : <RecipeLibraryPage />
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />

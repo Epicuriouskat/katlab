@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { LogOut, User, ChevronLeft, ChevronRight, Flame, Dumbbell, Wheat, Droplets, UtensilsCrossed } from 'lucide-react'
+import { LogOut, ChevronLeft, ChevronRight, Flame, Dumbbell, Wheat, Droplets, UtensilsCrossed } from 'lucide-react'
 import { useAuth } from '../components/AuthProvider'
 import MealSection from '../components/MealSection'
 import AddMealModal from '../components/AddMealModal'
+import BottomNav from '../components/BottomNav'
 
 const MEAL_SECTIONS = [
   { title: 'Breakfast', emoji: '🌅' },
@@ -142,7 +143,7 @@ export default function DashboardPage() {
     meals.filter((m) => m.mealType === title)
 
   return (
-    <div className="min-h-screen bg-cream grain-overlay">
+    <div className="min-h-screen bg-cream grain-overlay pb-16">
       {/* Top nav */}
       <header className="sticky top-0 z-40 bg-cream/80 border-b border-parchment backdrop-blur-sm">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -269,7 +270,7 @@ export default function DashboardPage() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => openAddModal()}
-          className="fixed bottom-8 right-6 sm:bottom-10 sm:right-10 w-14 h-14 rounded-full bg-terracotta text-cream shadow-lg shadow-terracotta/30 flex items-center justify-center"
+          className="fixed bottom-20 right-6 sm:bottom-24 sm:right-10 w-14 h-14 rounded-full bg-terracotta text-cream shadow-lg shadow-terracotta/30 flex items-center justify-center"
           style={{ boxShadow: '0 8px 32px rgba(196, 98, 45, 0.35)' }}
           aria-label="Add meal"
         >
@@ -283,6 +284,8 @@ export default function DashboardPage() {
         onAdd={handleAddMeal}
         defaultType={defaultMealType}
       />
+
+      <BottomNav />
     </div>
   )
 }
