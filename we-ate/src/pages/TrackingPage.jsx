@@ -265,6 +265,18 @@ export default function TrackingPage() {
   const openAdd  = (person, slot) => setAddModal({ open: true, person, slot })
   const closeAdd = ()              => setAddModal({ open: false, person: null, slot: null })
 
+  const [simulating, setSimulating] = useState(false)
+  const simulateMidnight = async () => {
+    setSimulating(true)
+    try {
+      await supabase.rpc('snapshot_daily_history', { snapshot_date: currentDate })
+      await supabase.from('daily_log_entries').delete().eq('date', currentDate)
+      await refetchLog()
+    } finally {
+      setSimulating(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-cream grain-overlay pb-20">
 
@@ -281,6 +293,17 @@ export default function TrackingPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {import.meta.env.DEV && (
+              <button
+                onClick={simulateMidnight}
+                disabled={simulating}
+                title="Simulate midnight reset (dev only)"
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-body font-medium transition-all border border-amber/40 bg-amber/10 text-amber hover:bg-amber/20 disabled:opacity-50"
+              >
+                <span className="font-body text-[9px] font-bold tracking-widest uppercase bg-amber/20 px-1 py-0.5 rounded">dev</span>
+                {simulating ? 'Saving…' : '⟳ Midnight'}
+              </button>
+            )}
             <button
               onClick={() => setActiveUser(null)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-warm-white border border-parchment hover:border-warm-gray-light transition-all text-xs font-body text-warm-gray hover:text-charcoal"
