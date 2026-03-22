@@ -33,7 +33,10 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession()
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('getSession timeout')), 5000)
+    )
+    Promise.race([supabase.auth.getSession(), timeout])
       .then(async ({ data: { session } }) => {
         setSession(session)
         setLoading(false)  // unblock routing as soon as session is known
@@ -45,7 +48,7 @@ export function AuthProvider({ children }) {
         }
       })
       .catch((e) => {
-        console.error('getSession failed', e)
+        console.error('getSession failed or timed out', e)
         setLoading(false)
       })
 
