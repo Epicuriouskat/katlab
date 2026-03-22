@@ -21,23 +21,28 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session)
-      try {
-        if (session) await loadProfiles()
-      } catch (e) {
-        console.error('loadProfiles failed', e)
-      } finally {
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        setSession(session)
+        try {
+          if (session) await loadProfiles()
+        } catch (e) {
+          console.error('loadProfiles failed', e)
+        } finally {
+          setLoading(false)
+        }
+      })
+      .catch((e) => {
+        console.error('getSession failed', e)
         setLoading(false)
-      }
-    })
+      })
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       if (session) {
-        await loadProfiles()
+        try { await loadProfiles() } catch (e) { console.error('loadProfiles failed', e) }
       } else {
         setProfiles([])
         setActiveProfileIdState(null)
