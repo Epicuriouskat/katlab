@@ -22,9 +22,9 @@ function LoadingScreen() {
 }
 
 function AppRoutes() {
-  const { session, profiles, activeProfileId, loading } = useAuth()
+  const { session, profiles, activeProfileId, loading, profilesReady } = useAuth()
 
-  if (loading) return <LoadingScreen />
+  if (loading || (session && !profilesReady)) return <LoadingScreen />
 
   // Determine where to redirect unauthenticated/un-setup users
   const noSession    = !session

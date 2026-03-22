@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [session,          setSession]          = useState(null)
   const [loading,          setLoading]          = useState(true)
   const [profiles,         setProfiles]         = useState([])
+  const [profilesReady,    setProfilesReady]    = useState(false)
   const [activeProfileId,  setActiveProfileIdState] = useState(() => {
     return localStorage.getItem('we-ate-active-profile') || null
   })
@@ -18,6 +19,7 @@ export function AuthProvider({ children }) {
       .select('id, name, created_at')
       .order('created_at')
     setProfiles((data ?? []).map(applyStyle))
+    setProfilesReady(true)
   }, [])
 
   useEffect(() => {
@@ -42,11 +44,10 @@ export function AuthProvider({ children }) {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       if (session) {
-        if (_event === 'SIGNED_IN') setLoading(true)
         try { await loadProfiles() } catch (e) { console.error('loadProfiles failed', e) }
-        if (_event === 'SIGNED_IN') setLoading(false)
       } else {
         setProfiles([])
+        setProfilesReady(false)
         setActiveProfileIdState(null)
         localStorage.removeItem('we-ate-active-profile')
       }
@@ -71,6 +72,7 @@ export function AuthProvider({ children }) {
       session,
       loading,
       profiles,
+      profilesReady,
       loadProfiles,
       activeProfileId,
       setActiveProfileId,
