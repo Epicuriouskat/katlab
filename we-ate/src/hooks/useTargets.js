@@ -1,38 +1,41 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
-// Fallback defaults while Supabase loads or if no rows exist yet
-export const TARGET_DEFAULTS = {
-  kat:      { calories: 1800, protein: 130, carbs: 160, fat: 60, fiber: null, sodium: 2300 },
-  jeremiah: { calories: 2400, protein: 200, carbs: 220, fat: 80, fiber: null, sodium: 2300 },
+const FALLBACK_TARGETS = {
+  calories: 2000,
+  protein:  150,
+  carbs:    200,
+  fat:      65,
+  fiber:    null,
+  sodium:   2300,
 }
 
+// Returns targets keyed by profile_id: { [profileId]: { calories, protein, ... } }
 export function useTargets() {
-  const [targets, setTargets] = useState(TARGET_DEFAULTS)
+  const [targets, setTargets] = useState({})
   const [loading, setLoading] = useState(true)
 
   const refetch = useCallback(async () => {
     const { data } = await supabase.from('user_targets').select('*')
-    if (data?.length) {
-      const next = { ...TARGET_DEFAULTS }
-      data.forEach((row) => {
-        if (next[row.person] !== undefined) {
-          next[row.person] = {
-            calories: row.calories,
-            protein:  row.protein,
-            carbs:    row.carbs,
-            fat:      row.fat,
-            fiber:    row.fiber  ?? null,
-            sodium:   row.sodium ?? 2300,
-          }
-        }
-      })
-      setTargets(next)
-    }
+    const next = {}
+    ;(data ?? []).forEach((row) => {
+      next[row.profile_id] = {
+        calories: row.calories,
+        protein:  row.protein,
+        carbs:    row.carbs,
+        fat:      row.fat,
+        fiber:    row.fiber  ?? null,
+        sodium:   row.sodium ?? 2300,
+      }
+    })
+    setTargets(next)
     setLoading(false)
   }, [])
 
   useEffect(() => { refetch() }, [refetch])
 
-  return { targets, loading, refetch }
+  // Returns targets for a given profile_id, falling back to defaults
+  const getTargets = (profileId) => targets[profileId] ?? FALLBACK_TARGETS
+
+  return { targets, getTargets, loading, refetch }
 }

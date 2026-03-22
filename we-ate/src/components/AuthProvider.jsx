@@ -1,50 +1,74 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { applyStyle } from '../lib/profileStyles'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [activeUser, setActiveUserState] = useState(() => {
-    return localStorage.getItem('we-ate-active-user') || null
+  const [session,          setSession]          = useState(null)
+  const [loading,          setLoading]          = useState(true)
+  const [profiles,         setProfiles]         = useState([])
+  const [activeProfileId,  setActiveProfileIdState] = useState(() => {
+    return localStorage.getItem('we-ate-active-profile') || null
   })
 
+  const loadProfiles = useCallback(async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, name, created_at')
+      .order('created_at')
+    setProfiles((data ?? []).map(applyStyle))
+  }, [])
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
-      setLoading(false)
+      try {
+        if (session) await loadProfiles()
+      } catch (e) {
+        console.error('loadProfiles failed', e)
+      } finally {
+        setLoading(false)
+      }
     })
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
-      if (!session) {
-        setActiveUserState(null)
-        localStorage.removeItem('we-ate-active-user')
+      if (session) {
+        await loadProfiles()
+      } else {
+        setProfiles([])
+        setActiveProfileIdState(null)
+        localStorage.removeItem('we-ate-active-profile')
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [loadProfiles])
 
-  const setActiveUser = (user) => {
-    setActiveUserState(user)
-    if (user) {
-      localStorage.setItem('we-ate-active-user', user)
-    } else {
-      localStorage.removeItem('we-ate-active-user')
-    }
+  const setActiveProfileId = (id) => {
+    setActiveProfileIdState(id)
+    if (id) localStorage.setItem('we-ate-active-profile', id)
+    else     localStorage.removeItem('we-ate-active-profile')
   }
 
   const signOut = async () => {
     await supabase.auth.signOut()
-    setActiveUser(null)
+    setActiveProfileId(null)
   }
 
   return (
-    <AuthContext.Provider value={{ session, loading, activeUser, setActiveUser, signOut }}>
+    <AuthContext.Provider value={{
+      session,
+      loading,
+      profiles,
+      loadProfiles,
+      activeProfileId,
+      setActiveProfileId,
+      signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   )

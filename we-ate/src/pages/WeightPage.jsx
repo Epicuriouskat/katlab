@@ -3,13 +3,9 @@ import { motion } from 'framer-motion'
 import { Scale, Pencil, Trash2, Check, X as XIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getLocalDate } from '../hooks/useDailyLog'
+import { useAuth } from '../components/AuthProvider'
 import PageHeader from '../components/PageHeader'
 import BottomNav from '../components/BottomNav'
-
-const USER_META = {
-  kat:      { name: 'Kat',      accent: '#C4622D' },
-  jeremiah: { name: 'Jeremiah', accent: '#5A7D68' },
-}
 
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -20,14 +16,16 @@ function formatDate(dateStr) {
 
 // ── SVG Line Chart ─────────────────────────────────────────────────────────────
 
-function WeightChart({ rows }) {
-  const katRows      = useMemo(() => rows.filter(r => r.person === 'kat'),      [rows])
-  const jeremiahRows = useMemo(() => rows.filter(r => r.person === 'jeremiah'), [rows])
+function WeightChart({ rows, profiles }) {
+  const profileRows = useMemo(
+    () => profiles.map((p) => rows.filter((r) => r.profile_id === p.id)),
+    [rows, profiles]
+  )
 
   const allDates = useMemo(() => {
-    const dates = new Set([...katRows.map(r => r.date), ...jeremiahRows.map(r => r.date)])
+    const dates = new Set(rows.map((r) => r.date))
     return [...dates].sort()
-  }, [katRows, jeremiahRows])
+  }, [rows])
 
   if (allDates.length < 2) return null
 
@@ -37,7 +35,7 @@ function WeightChart({ rows }) {
   const innerW = W - PAD.left - PAD.right
   const innerH = H - PAD.top  - PAD.bottom
 
-  const allWeights = rows.map(r => Number(r.weight_lbs))
+  const allWeights = rows.map((r) => Number(r.weight_lbs))
   const minW = Math.floor(Math.min(...allWeights)) - 2
   const maxW = Math.ceil( Math.max(...allWeights)) + 2
 
@@ -45,7 +43,7 @@ function WeightChart({ rows }) {
   const yScale = (w) => PAD.top  + ((maxW - w) / (maxW - minW)) * innerH
 
   const buildPath = (personRows) => {
-    const pts = personRows.map(r => {
+    const pts = personRows.map((r) => {
       const xi = allDates.indexOf(r.date)
       return [xScale(xi), yScale(Number(r.weight_lbs))]
     })
@@ -62,7 +60,7 @@ function WeightChart({ rows }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ overflow: 'visible' }}>
-      {yTicks.map(w => (
+      {yTicks.map((w) => (
         <g key={w}>
           <line
             x1={PAD.left}      y1={yScale(w)}
@@ -89,41 +87,30 @@ function WeightChart({ rows }) {
         )
       })}
 
-      {katRows.length > 0 && (
-        <>
-          <path d={buildPath(katRows)} fill="none" stroke="#C4622D" strokeWidth="2"
-            strokeLinecap="round" strokeLinejoin="round" />
-          {katRows.map(r => {
-            const xi = allDates.indexOf(r.date)
-            return (
-              <circle key={r.id} cx={xScale(xi)} cy={yScale(Number(r.weight_lbs))} r="3.5"
-                fill="#C4622D" />
-            )
-          })}
-        </>
-      )}
-
-      {jeremiahRows.length > 0 && (
-        <>
-          <path d={buildPath(jeremiahRows)} fill="none" stroke="#5A7D68" strokeWidth="2"
-            strokeLinecap="round" strokeLinejoin="round" />
-          {jeremiahRows.map(r => {
-            const xi = allDates.indexOf(r.date)
-            return (
-              <circle key={r.id} cx={xScale(xi)} cy={yScale(Number(r.weight_lbs))} r="3.5"
-                fill="#5A7D68" />
-            )
-          })}
-        </>
-      )}
+      {profiles.map((profile, i) => {
+        const pRows = profileRows[i]
+        if (pRows.length === 0) return null
+        return (
+          <g key={profile.id}>
+            <path d={buildPath(pRows)} fill="none" stroke={profile.accent} strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round" />
+            {pRows.map((r) => {
+              const xi = allDates.indexOf(r.date)
+              return (
+                <circle key={r.id} cx={xScale(xi)} cy={yScale(Number(r.weight_lbs))} r="3.5"
+                  fill={profile.accent} />
+              )
+            })}
+          </g>
+        )
+      })}
     </svg>
   )
 }
 
 // ── Entry form ─────────────────────────────────────────────────────────────────
 
-function WeightEntryForm({ person, personRows, onSaved }) {
-  const meta  = USER_META[person]
+function WeightEntryForm({ profile, personRows, onSaved }) {
   const today = getLocalDate()
 
   const [selectedDate, setSelectedDate] = useState(today)
@@ -132,7 +119,7 @@ function WeightEntryForm({ person, personRows, onSaved }) {
   const [saved,        setSaved]        = useState(false)
 
   useEffect(() => {
-    const existing = personRows.find(r => r.date === selectedDate)
+    const existing = personRows.find((r) => r.date === selectedDate)
     setValue(existing ? String(existing.weight_lbs) : '')
     setSaved(false)
   }, [selectedDate, personRows])
@@ -142,26 +129,29 @@ function WeightEntryForm({ person, personRows, onSaved }) {
     setSaving(true)
     await supabase
       .from('weight_log')
-      .upsert({ date: selectedDate, person, weight_lbs: Number(value) }, { onConflict: 'date,person' })
+      .upsert(
+        { date: selectedDate, profile_id: profile.id, weight_lbs: Number(value) },
+        { onConflict: 'date,profile_id' }
+      )
     setSaving(false)
     setSaved(true)
     onSaved()
     setTimeout(() => setSaved(false), 3000)
   }
 
-  const isEditing = personRows.some(r => r.date === selectedDate)
+  const isEditing = personRows.some((r) => r.date === selectedDate)
 
   return (
     <div className="card p-4 overflow-hidden">
       <div className="flex items-center gap-2.5 mb-3">
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-white font-display text-lg italic shrink-0"
-          style={{ backgroundColor: meta.accent }}
+          style={{ backgroundColor: profile.accent }}
         >
-          {meta.name[0]}
+          {profile.initial}
         </div>
-        <span className="font-display text-lg font-medium" style={{ color: meta.accent }}>
-          {meta.name}
+        <span className="font-display text-lg font-medium" style={{ color: profile.accent }}>
+          {profile.name}
         </span>
         {isEditing && (
           <span className="ml-auto eyebrow text-warm-gray-light">editing</span>
@@ -193,7 +183,7 @@ function WeightEntryForm({ person, personRows, onSaved }) {
           onClick={handleSave}
           disabled={saving || !value}
           className="px-5 py-2 rounded-full font-body font-medium text-sm text-white transition-all disabled:opacity-40 shrink-0 hover:-translate-y-px active:scale-[0.97]"
-          style={{ backgroundColor: saved ? '#7B9E87' : meta.accent }}
+          style={{ backgroundColor: saved ? '#7B9E87' : profile.accent }}
         >
           {saving ? '…' : saved ? '✓ Saved' : 'Save'}
         </button>
@@ -204,7 +194,7 @@ function WeightEntryForm({ person, personRows, onSaved }) {
 
 // ── Weight table cell with inline edit / delete ───────────────────────────────
 
-function WeightCell({ row, accent, onRefetch }) {
+function WeightCell({ row, accent, profileId, onRefetch }) {
   const today = getLocalDate()
 
   const [editing,    setEditing]    = useState(false)
@@ -226,11 +216,13 @@ function WeightCell({ row, accent, onRefetch }) {
     if (editDate === row.date) {
       await supabase.from('weight_log').update({ weight_lbs: Number(editValue) }).eq('id', row.id)
     } else {
-      // Date changed: delete old entry, upsert at new date (handles conflicts)
       await supabase.from('weight_log').delete().eq('id', row.id)
       await supabase
         .from('weight_log')
-        .upsert({ date: editDate, person: row.person, weight_lbs: Number(editValue) }, { onConflict: 'date,person' })
+        .upsert(
+          { date: editDate, profile_id: profileId, weight_lbs: Number(editValue) },
+          { onConflict: 'date,profile_id' }
+        )
     }
     setSaving(false)
     setEditing(false)
@@ -353,6 +345,7 @@ function WeightCell({ row, accent, onRefetch }) {
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function WeightPage() {
+  const { profiles } = useAuth()
   const [rows,    setRows]    = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -367,14 +360,17 @@ export default function WeightPage() {
 
   useEffect(() => { fetchRows() }, [])
 
-  const katRows      = useMemo(() => rows.filter(r => r.person === 'kat'),      [rows])
-  const jeremiahRows = useMemo(() => rows.filter(r => r.person === 'jeremiah'), [rows])
+  // Rows per profile
+  const profileRows = useMemo(
+    () => profiles.map((p) => rows.filter((r) => r.profile_id === p.id)),
+    [rows, profiles]
+  )
 
   const grouped = useMemo(() => {
     const map = {}
-    rows.forEach(r => {
-      if (!map[r.date]) map[r.date] = { kat: null, jeremiah: null }
-      map[r.date][r.person] = r
+    rows.forEach((r) => {
+      if (!map[r.date]) map[r.date] = {}
+      map[r.date][r.profile_id] = r
     })
     return Object.entries(map).sort(([a], [b]) => b.localeCompare(a))
   }, [rows])
@@ -398,14 +394,20 @@ export default function WeightPage() {
           <p className="font-body text-sm text-warm-gray mt-1">
             {grouped.length > 0
               ? `${grouped.length} day${grouped.length !== 1 ? 's' : ''} recorded`
-              : "Log today's weight for each person below."}
+              : "Log today's weight below."}
           </p>
         </div>
 
         {/* Entry forms */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-          <WeightEntryForm person="kat"      personRows={katRows}      onSaved={fetchRows} />
-          <WeightEntryForm person="jeremiah" personRows={jeremiahRows} onSaved={fetchRows} />
+        <div className={`grid grid-cols-1 ${profiles.length > 1 ? 'sm:grid-cols-2' : 'max-w-sm'} gap-3 mb-8`}>
+          {profiles.map((profile, i) => (
+            <WeightEntryForm
+              key={profile.id}
+              profile={profile}
+              personRows={profileRows[i]}
+              onSaved={fetchRows}
+            />
+          ))}
         </div>
 
         {loading ? (
@@ -435,18 +437,18 @@ export default function WeightPage() {
               >
                 <div className="flex items-center justify-between mb-4">
                   <p className="eyebrow">Trend</p>
-                  <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1.5 font-body text-[11px] text-warm-gray">
-                      <span className="w-4 h-0.5 rounded-full inline-block" style={{ backgroundColor: '#C4622D' }} />
-                      Kat
-                    </span>
-                    <span className="flex items-center gap-1.5 font-body text-[11px] text-warm-gray">
-                      <span className="w-4 h-0.5 rounded-full inline-block" style={{ backgroundColor: '#5A7D68' }} />
-                      Jeremiah
-                    </span>
-                  </div>
+                  {profiles.length > 1 && (
+                    <div className="flex items-center gap-4">
+                      {profiles.map((p) => (
+                        <span key={p.id} className="flex items-center gap-1.5 font-body text-[11px] text-warm-gray">
+                          <span className="w-4 h-0.5 rounded-full inline-block" style={{ backgroundColor: p.accent }} />
+                          {p.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <WeightChart rows={chartRows} />
+                <WeightChart rows={chartRows} profiles={profiles} />
               </motion.div>
             )}
 
@@ -457,18 +459,19 @@ export default function WeightPage() {
               className="card overflow-hidden"
             >
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[480px] border-collapse">
+                <table className="w-full border-collapse" style={{ minWidth: profiles.length > 1 ? 480 : 320 }}>
                   <thead>
                     <tr className="border-b border-parchment">
                       <th className="px-4 py-3 text-left eyebrow w-36">Date</th>
-                      <th className="px-4 py-3 text-left eyebrow"
-                        style={{ color: USER_META.kat.accent }}>Kat</th>
-                      <th className="px-4 py-3 text-left eyebrow"
-                        style={{ color: USER_META.jeremiah.accent }}>Jeremiah</th>
+                      {profiles.map((p) => (
+                        <th key={p.id} className="px-4 py-3 text-left eyebrow" style={{ color: p.accent }}>
+                          {p.name}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {grouped.map(([date, people], i) => (
+                    {grouped.map(([date, byProfile], i) => (
                       <motion.tr
                         key={date}
                         initial={{ opacity: 0, y: 4 }}
@@ -483,11 +486,12 @@ export default function WeightPage() {
                             {formatDate(date)}
                           </p>
                         </td>
-                        {['kat', 'jeremiah'].map(person => (
+                        {profiles.map((profile) => (
                           <WeightCell
-                            key={person}
-                            row={people[person]}
-                            accent={USER_META[person].accent}
+                            key={profile.id}
+                            row={byProfile[profile.id]}
+                            accent={profile.accent}
+                            profileId={profile.id}
                             onRefetch={fetchRows}
                           />
                         ))}

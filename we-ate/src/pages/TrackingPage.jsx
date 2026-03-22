@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader'
 import { useDailyLog, getEntryNutrition, computeTotals, useMidnightReset, getLocalDate } from '../hooks/useDailyLog'
 import { useRecipes, useQuickItems } from '../hooks/useRecipes'
 import { useTargets } from '../hooks/useTargets'
+import { useAuth } from '../components/AuthProvider'
 import AddLogEntryModal from '../components/AddLogEntryModal'
 import BottomNav from '../components/BottomNav'
 
@@ -19,12 +20,6 @@ const MEAL_SLOTS = [
   { id: 'dinner',    label: 'Dinner',    emoji: '🌙'  },
   { id: 'snacks',    label: 'Snacks',    emoji: '🍎'  },
 ]
-
-
-const USER_META = {
-  kat:      { name: 'Kat',      initial: 'K', accent: '#C4622D', accentBg: '#F5E4D8' },
-  jeremiah: { name: 'Jeremiah', initial: 'J', accent: '#5A7D68', accentBg: '#DFF0E5' },
-}
 
 function formatDisplayDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -42,9 +37,9 @@ function MacroBar({ label, value, target, unit }) {
   const pct = target > 0 ? (value / target) * 100 : 0
   const over = pct > 100
 
-  let barColor = '#7B9E87'           // sage   — on track
-  if (pct > 100) barColor = '#EF4444' // red    — over
-  else if (pct > 90) barColor = '#F59E0B' // amber — close
+  let barColor = '#7B9E87'
+  if (pct > 100) barColor = '#EF4444'
+  else if (pct > 90) barColor = '#F59E0B'
 
   return (
     <div>
@@ -75,9 +70,9 @@ function MacroBar({ label, value, target, unit }) {
 
 // ── MacroTotals ───────────────────────────────────────────────────────────────
 
-function MacroTotals({ entries, person, allTargets }) {
-  const totals   = useMemo(() => computeTotals(entries), [entries])
-  const targets  = allTargets[person] ?? { calories: 2000, protein: 150, carbs: 200, fat: 65 }
+function MacroTotals({ entries, profileId, getTargets }) {
+  const totals  = useMemo(() => computeTotals(entries), [entries])
+  const targets = getTargets(profileId)
   const calPct  = targets.calories > 0 ? (totals.calories / targets.calories) * 100 : 0
   const calColor = calPct > 100 ? '#EF4444' : calPct > 90 ? '#F59E0B' : '#2C2416'
 
@@ -87,7 +82,6 @@ function MacroTotals({ entries, person, allTargets }) {
         Daily totals
       </p>
 
-      {/* Big calorie display */}
       <div className="flex items-end gap-1.5">
         <span
           className="font-display text-4xl font-medium leading-none"
@@ -287,10 +281,12 @@ function MealSlot({ slot, entries, accent, onAdd, onRefetch }) {
 
 // ── Person column ─────────────────────────────────────────────────────────────
 
-function PersonColumn({ person, entries, onAdd, onRefetch, allTargets }) {
-  const meta = USER_META[person]
-  const personEntries = useMemo(() => entries.filter((e) => e.person === person), [entries, person])
-  const getSlotEntries = (slotId) => personEntries.filter((e) => e.meal_slot === slotId)
+function PersonColumn({ profile, entries, onAdd, onRefetch, getTargets }) {
+  const profileEntries = useMemo(
+    () => entries.filter((e) => e.profile_id === profile.id),
+    [entries, profile.id]
+  )
+  const getSlotEntries = (slotId) => profileEntries.filter((e) => e.meal_slot === slotId)
 
   return (
     <div className="h-full">
@@ -298,27 +294,25 @@ function PersonColumn({ person, entries, onAdd, onRefetch, allTargets }) {
       <div className="flex items-center gap-2.5 mb-5 pb-3 border-b border-parchment">
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center text-white font-display text-xl italic shrink-0"
-          style={{ backgroundColor: meta.accent }}
+          style={{ backgroundColor: profile.accent }}
         >
-          {meta.initial}
+          {profile.initial}
         </div>
-        <h2 className="font-display text-2xl font-medium" style={{ color: meta.accent }}>
-          {meta.name}
+        <h2 className="font-display text-2xl font-medium" style={{ color: profile.accent }}>
+          {profile.name}
         </h2>
       </div>
 
-      {/* Totals + progress bars */}
-      <MacroTotals entries={personEntries} person={person} allTargets={allTargets} />
+      <MacroTotals entries={profileEntries} profileId={profile.id} getTargets={getTargets} />
 
-      {/* Meal slots */}
       <div className="mt-5">
         {MEAL_SLOTS.map((slot) => (
           <MealSlot
             key={slot.id}
             slot={slot}
             entries={getSlotEntries(slot.id)}
-            accent={meta.accent}
-            onAdd={() => onAdd(person, slot.id)}
+            accent={profile.accent}
+            onAdd={() => onAdd(profile.id, slot.id)}
             onRefetch={onRefetch}
           />
         ))}
@@ -330,19 +324,22 @@ function PersonColumn({ person, entries, onAdd, onRefetch, allTargets }) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function TrackingPage() {
-  const [mobilePerson, setMobilePerson] = useState('kat')
-  const [addModal, setAddModal] = useState({ open: false, person: null, slot: null })
+  const { profiles } = useAuth()
+  const [mobileProfileId, setMobileProfileId] = useState(null)
+  const [addModal, setAddModal] = useState({ open: false, profileId: null, slot: null })
 
-  // Midnight auto-reset — returns current local date, snapshots at rollover
   const currentDate = useMidnightReset()
 
   const { entries, loading, refetch: refetchLog } = useDailyLog(currentDate)
-  const { recipes }              = useRecipes()
-  const { quickItems }           = useQuickItems()
-  const { targets: allTargets }  = useTargets()
+  const { recipes }           = useRecipes()
+  const { quickItems }        = useQuickItems()
+  const { getTargets }        = useTargets()
 
-  const openAdd  = (person, slot) => setAddModal({ open: true, person, slot })
-  const closeAdd = ()              => setAddModal({ open: false, person: null, slot: null })
+  // Default to first profile on load
+  const activeMobileId = mobileProfileId ?? profiles[0]?.id
+
+  const openAdd  = (profileId, slot) => setAddModal({ open: true, profileId, slot })
+  const closeAdd = ()                 => setAddModal({ open: false, profileId: null, slot: null })
 
   const [simulating, setSimulating] = useState(false)
   const simulateMidnight = async () => {
@@ -373,76 +370,66 @@ export default function TrackingPage() {
         )}
       </PageHeader>
 
-      {/* Mobile person toggle */}
-      <div className="md:hidden px-4 pt-3">
-        <div className="flex gap-2">
-          {['kat', 'jeremiah'].map((p) => {
-            const m = USER_META[p]
-            const active = mobilePerson === p
-            return (
-              <button
-                key={p}
-                onClick={() => setMobilePerson(p)}
-                className="flex-1 py-2.5 rounded-full text-sm font-body font-medium transition-all duration-200"
-                style={
-                  active
-                    ? { backgroundColor: m.accent, color: '#FAF7F2' }
-                    : { backgroundColor: '#F5EFE6', color: '#8A7E74', border: '1px solid #EDE4D6' }
-                }
-              >
-                {m.name}
-              </button>
-            )
-          })}
+      {/* Mobile profile toggle — only shown when 2+ profiles */}
+      {profiles.length > 1 && (
+        <div className="md:hidden px-4 pt-3">
+          <div className="flex gap-2">
+            {profiles.map((p) => {
+              const active = activeMobileId === p.id
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setMobileProfileId(p.id)}
+                  className="flex-1 py-2.5 rounded-full text-sm font-body font-medium transition-all duration-200"
+                  style={
+                    active
+                      ? { backgroundColor: p.accent, color: '#FAF7F2' }
+                      : { backgroundColor: '#F5EFE6', color: '#8A7E74', border: '1px solid #EDE4D6' }
+                  }
+                >
+                  {p.name}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Main content */}
       <main className="max-w-4xl mx-auto">
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-6 h-6 border-2 border-parchment border-t-terracotta rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row">
-
-            {/* Kat */}
-            <div
-              className={`flex-1 px-4 py-5 md:border-r md:border-parchment ${
-                mobilePerson !== 'kat' ? 'hidden md:block' : ''
-              }`}
-            >
-              <PersonColumn
-                person="kat"
-                entries={entries}
-                onAdd={openAdd}
-                onRefetch={refetchLog}
-                allTargets={allTargets}
-              />
-            </div>
-
-            {/* Jeremiah */}
-            <div
-              className={`flex-1 px-4 py-5 ${
-                mobilePerson !== 'jeremiah' ? 'hidden md:block' : ''
-              }`}
-            >
-              <PersonColumn
-                person="jeremiah"
-                entries={entries}
-                onAdd={openAdd}
-                onRefetch={refetchLog}
-                allTargets={allTargets}
-              />
-            </div>
-
+          <div className={`flex flex-col ${profiles.length > 1 ? 'md:flex-row' : ''}`}>
+            {profiles.map((profile, i) => {
+              const isVisible = profiles.length === 1 || activeMobileId === profile.id
+              return (
+                <div
+                  key={profile.id}
+                  className={`flex-1 px-4 py-5 ${
+                    profiles.length > 1 && i < profiles.length - 1 ? 'md:border-r md:border-parchment' : ''
+                  } ${
+                    profiles.length > 1 && !isVisible ? 'hidden md:block' : ''
+                  }`}
+                >
+                  <PersonColumn
+                    profile={profile}
+                    entries={entries}
+                    onAdd={openAdd}
+                    onRefetch={refetchLog}
+                    getTargets={getTargets}
+                  />
+                </div>
+              )
+            })}
           </div>
         )}
       </main>
 
       <AddLogEntryModal
         open={addModal.open}
-        person={addModal.person}
+        profileId={addModal.profileId}
         mealSlot={addModal.slot}
         date={currentDate}
         onClose={closeAdd}

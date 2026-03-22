@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, Plus, X, BookOpen, Zap, Pencil, Trash2, Flame, Dumbbell, Wheat, Droplets, Leaf } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../components/AuthProvider'
 import { useRecipes, useQuickItems } from '../hooks/useRecipes'
 import RecipeCard from '../components/RecipeCard'
 import RecipeFormModal from '../components/RecipeFormModal'
@@ -121,6 +122,7 @@ function EmptyState({ tab, onAdd }) {
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function RecipeLibraryPage() {
+  const { profiles } = useAuth()
   const [tab, setTab] = useState('recipes')
   const [search, setSearch] = useState('')
 
@@ -153,7 +155,6 @@ export default function RecipeLibraryPage() {
   return (
     <div className="min-h-screen bg-cream grain-overlay pb-20">
 
-      {/* Brand header */}
       <PageHeader
         subtitle={tab === 'recipes' ? 'Recipes' : 'Quick items'}
         maxWidth="max-w-2xl"
@@ -167,7 +168,6 @@ export default function RecipeLibraryPage() {
         </button>
       </PageHeader>
 
-      {/* Tabs + search — stick just below the brand header */}
       <div className="sticky top-14 z-30 bg-cream/95 border-b border-parchment backdrop-blur-sm">
         <div className="max-w-2xl mx-auto px-4 pt-3 pb-3">
           <div className="flex gap-1 bg-parchment/60 rounded-xl p-1 mb-3">
@@ -211,7 +211,6 @@ export default function RecipeLibraryPage() {
         </div>
       </div>
 
-      {/* Content */}
       <main className="max-w-2xl mx-auto px-4 py-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
@@ -220,7 +219,6 @@ export default function RecipeLibraryPage() {
         ) : (
           <AnimatePresence mode="wait">
 
-            {/* ── Recipes tab ── */}
             {tab === 'recipes' && (
               <motion.div
                 key="recipes"
@@ -248,6 +246,7 @@ export default function RecipeLibraryPage() {
                         >
                           <RecipeCard
                             recipe={recipe}
+                            profiles={profiles}
                             onEdit={openEditRecipe}
                             onDeleted={refetchRecipes}
                           />
@@ -259,7 +258,6 @@ export default function RecipeLibraryPage() {
               </motion.div>
             )}
 
-            {/* ── Quick items tab ── */}
             {tab === 'quick' && (
               <motion.div
                 key="quick"
@@ -309,6 +307,7 @@ export default function RecipeLibraryPage() {
         onClose={() => setRecipeModalOpen(false)}
         onSaved={refetchRecipes}
         recipe={editingRecipe}
+        profiles={profiles}
       />
 
       <QuickItemFormModal

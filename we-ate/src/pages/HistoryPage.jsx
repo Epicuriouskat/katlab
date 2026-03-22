@@ -2,13 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Calendar, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../components/AuthProvider'
 import PageHeader from '../components/PageHeader'
 import BottomNav from '../components/BottomNav'
-
-const USER_META = {
-  kat:      { name: 'Kat',      accent: '#C4622D' },
-  jeremiah: { name: 'Jeremiah', accent: '#5A7D68' },
-}
 
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -45,7 +41,7 @@ function MacroCell({ row, accent }) {
   )
 }
 
-function HistoryRow({ date, people, i, onDeleted }) {
+function HistoryRow({ date, byProfile, profiles, i, onDeleted }) {
   const [confirming, setConfirming] = useState(false)
   const [deleting,   setDeleting]   = useState(false)
 
@@ -64,7 +60,6 @@ function HistoryRow({ date, people, i, onDeleted }) {
         i % 2 === 0 ? 'bg-transparent' : 'bg-warm-white/50'
       }`}
     >
-      {/* Date cell — holds the delete control */}
       <td className="px-4 py-4 align-top">
         {confirming ? (
           <div className="flex flex-col gap-1">
@@ -101,8 +96,9 @@ function HistoryRow({ date, people, i, onDeleted }) {
         )}
       </td>
 
-      <MacroCell row={people.kat}      accent={USER_META.kat.accent} />
-      <MacroCell row={people.jeremiah} accent={USER_META.jeremiah.accent} />
+      {profiles.map((profile) => (
+        <MacroCell key={profile.id} row={byProfile[profile.id]} accent={profile.accent} />
+      ))}
     </motion.tr>
   )
 }
@@ -126,6 +122,7 @@ function EmptyState() {
 }
 
 export default function HistoryPage() {
+  const { profiles } = useAuth()
   const [rows,    setRows]    = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -142,8 +139,8 @@ export default function HistoryPage() {
   const grouped = useMemo(() => {
     const map = {}
     rows.forEach((r) => {
-      if (!map[r.date]) map[r.date] = { kat: null, jeremiah: null }
-      map[r.date][r.person] = r
+      if (!map[r.date]) map[r.date] = {}
+      map[r.date][r.profile_id] = r
     })
     return Object.entries(map).sort(([a], [b]) => b.localeCompare(a))
   }, [rows])
@@ -177,26 +174,24 @@ export default function HistoryPage() {
             className="card overflow-hidden"
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] border-collapse">
+              <table className="w-full border-collapse" style={{ minWidth: profiles.length > 1 ? 480 : 320 }}>
                 <thead>
                   <tr className="border-b border-parchment">
                     <th className="px-4 py-3 text-left eyebrow w-36">Date</th>
-                    <th className="px-4 py-3 text-left eyebrow"
-                      style={{ color: USER_META.kat.accent }}>
-                      Kat
-                    </th>
-                    <th className="px-4 py-3 text-left eyebrow"
-                      style={{ color: USER_META.jeremiah.accent }}>
-                      Jeremiah
-                    </th>
+                    {profiles.map((p) => (
+                      <th key={p.id} className="px-4 py-3 text-left eyebrow" style={{ color: p.accent }}>
+                        {p.name}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {grouped.map(([date, people], i) => (
+                  {grouped.map(([date, byProfile], i) => (
                     <HistoryRow
                       key={date}
                       date={date}
-                      people={people}
+                      byProfile={byProfile}
+                      profiles={profiles}
                       i={i}
                       onDeleted={fetchRows}
                     />

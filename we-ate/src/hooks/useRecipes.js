@@ -13,7 +13,7 @@ export function useRecipes() {
       .select(`
         id, name, type, notes, created_at,
         recipe_ingredients(id, ingredient_name, kat_amount, jeremiah_amount, sort_order),
-        recipe_nutrition(id, person, calories, protein, carbs, fat, fiber)
+        recipe_nutrition(id, profile_id, calories, protein, carbs, fat, fiber, sodium)
       `)
       .order('name')
 

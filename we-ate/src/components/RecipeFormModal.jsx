@@ -5,15 +5,18 @@ import { supabase } from '../lib/supabase'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-const EMPTY_ING = () => ({ ingredient_name: '', kat_amount: '', jeremiah_amount: '' })
+const EMPTY_ING = () => ({ ingredient_name: '', p0_amount: '', p1_amount: '' })
 const EMPTY_NUT = () => ({ calories: '', protein: '', carbs: '', fat: '', fiber: '', sodium: '' })
-const initForm = () => ({
-  name: '',
-  type: 'single',
-  notes: '',
-  ingredients: [EMPTY_ING()],
-  nutrition: { kat: EMPTY_NUT(), jeremiah: EMPTY_NUT() },
-})
+
+function initForm(profiles) {
+  return {
+    name:  '',
+    type:  'single',
+    notes: '',
+    ingredients: [EMPTY_ING()],
+    nutrition: profiles.reduce((acc, p) => ({ ...acc, [p.id]: EMPTY_NUT() }), {}),
+  }
+}
 
 function nutFromRow(row) {
   if (!row) return EMPTY_NUT()
@@ -27,23 +30,23 @@ function nutFromRow(row) {
   }
 }
 
-function populateForm(recipe) {
+function populateForm(recipe, profiles) {
   const ings = (recipe.recipe_ingredients ?? [])
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((i) => ({
       ingredient_name: i.ingredient_name,
-      kat_amount:      i.kat_amount ?? '',
-      jeremiah_amount: i.jeremiah_amount ?? '',
+      p0_amount:       i.kat_amount      ?? '',  // first profile maps to kat_amount column
+      p1_amount:       i.jeremiah_amount ?? '',  // second profile maps to jeremiah_amount column
     }))
   return {
     name:  recipe.name,
     type:  recipe.type,
     notes: recipe.notes ?? '',
     ingredients: ings.length ? ings : [EMPTY_ING()],
-    nutrition: {
-      kat:      nutFromRow((recipe.recipe_nutrition ?? []).find((n) => n.person === 'kat')),
-      jeremiah: nutFromRow((recipe.recipe_nutrition ?? []).find((n) => n.person === 'jeremiah')),
-    },
+    nutrition: profiles.reduce((acc, p) => ({
+      ...acc,
+      [p.id]: nutFromRow((recipe.recipe_nutrition ?? []).find((n) => n.profile_id === p.id)),
+    }), {}),
   }
 }
 
@@ -97,7 +100,9 @@ function NutritionPanel({ title, accentColor, values, onChange }) {
   )
 }
 
-function IngredientRow({ ing, isSplit, index, onChange, onRemove, isOnly }) {
+function IngredientRow({ ing, isSplit, profiles, index, onChange, onRemove, isOnly }) {
+  const p0Name = profiles[0]?.name ?? 'Person 1'
+  const p1Name = profiles[1]?.name ?? 'Person 2'
   return (
     <div className="flex items-start gap-2">
       <div className="flex-1 grid gap-2" style={{ gridTemplateColumns: isSplit ? '2fr 1fr 1fr' : '2fr 1fr' }}>
@@ -110,17 +115,17 @@ function IngredientRow({ ing, isSplit, index, onChange, onRemove, isOnly }) {
         />
         <input
           type="text"
-          value={ing.kat_amount}
-          onChange={(e) => onChange(index, 'kat_amount', e.target.value)}
-          placeholder={isSplit ? "Kat's" : 'Amount'}
+          value={ing.p0_amount}
+          onChange={(e) => onChange(index, 'p0_amount', e.target.value)}
+          placeholder={isSplit ? `${p0Name}'s` : 'Amount'}
           className="input-field py-2 text-sm"
         />
         {isSplit && (
           <input
             type="text"
-            value={ing.jeremiah_amount}
-            onChange={(e) => onChange(index, 'jeremiah_amount', e.target.value)}
-            placeholder="Jeremiah's"
+            value={ing.p1_amount}
+            onChange={(e) => onChange(index, 'p1_amount', e.target.value)}
+            placeholder={`${p1Name}'s`}
             className="input-field py-2 text-sm"
           />
         )}
@@ -159,25 +164,28 @@ function StepDots({ step, total }) {
 
 const STEPS = ['Details', 'Ingredients', 'Nutrition']
 
-export default function RecipeFormModal({ open, onClose, onSaved, recipe = null }) {
+export default function RecipeFormModal({ open, onClose, onSaved, recipe = null, profiles = [] }) {
   const isEdit = !!recipe
   const [step, setStep] = useState(0)
-  const [form, setForm] = useState(initForm)
+  const [form, setForm] = useState(() => initForm(profiles))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
-  // Populate form when editing
+  // Ensure split option is only available with 2+ profiles
+  const canSplit = profiles.length >= 2
+
   useEffect(() => {
     if (open) {
-      setForm(recipe ? populateForm(recipe) : initForm())
+      const base = recipe ? populateForm(recipe, profiles) : initForm(profiles)
+      // Force single if only 1 profile
+      setForm({ ...base, type: !canSplit ? 'single' : base.type })
       setStep(0)
       setError(null)
     }
-  }, [open, recipe])
+  }, [open, recipe, canSplit])
 
   const setField = (field, value) => setForm((p) => ({ ...p, [field]: value }))
 
-  // Ingredient helpers
   const updateIng = (i, field, value) =>
     setForm((p) => {
       const ings = [...p.ingredients]
@@ -188,29 +196,27 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
   const removeIng = (i) =>
     setForm((p) => ({ ...p, ingredients: p.ingredients.filter((_, idx) => idx !== i) }))
 
-  // Nutrition helpers
-  const updateNut = (person, field, value) =>
+  const updateNut = (profileId, field, value) =>
     setForm((p) => ({
       ...p,
-      nutrition: { ...p.nutrition, [person]: { ...p.nutrition[person], [field]: value } },
+      nutrition: {
+        ...p.nutrition,
+        [profileId]: { ...p.nutrition[profileId], [field]: value },
+      },
     }))
 
-  // Step validation
   const canAdvance = () => {
     if (step === 0) return form.name.trim().length > 0
     if (step === 1) return true
     return false
   }
 
-  const handleNext = () => {
-    if (step < STEPS.length - 1) setStep((s) => s + 1)
-  }
+  const handleNext = () => { if (step < STEPS.length - 1) setStep((s) => s + 1) }
   const handleBack = () => {
     if (step > 0) setStep((s) => s - 1)
     else onClose()
   }
 
-  // Save
   const handleSave = async () => {
     setSaving(true)
     setError(null)
@@ -236,39 +242,41 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
         recipeId = data.id
       }
 
-      // Ingredients
+      // Ingredients — p0_amount → kat_amount, p1_amount → jeremiah_amount (column names stay for compatibility)
       const validIngs = form.ingredients.filter((i) => i.ingredient_name.trim())
       if (validIngs.length > 0) {
         const { error: e } = await supabase.from('recipe_ingredients').insert(
           validIngs.map((ing, idx) => ({
             recipe_id:       recipeId,
             ingredient_name: ing.ingredient_name.trim(),
-            kat_amount:      ing.kat_amount || null,
+            kat_amount:      ing.p0_amount || null,
             jeremiah_amount:
-              form.type === 'split' ? (ing.jeremiah_amount || null) : (ing.kat_amount || null),
+              form.type === 'split' ? (ing.p1_amount || null) : (ing.p0_amount || null),
             sort_order: idx,
           }))
         )
         if (e) throw e
       }
 
-      // Nutrition — always save a row for each person
+      // Nutrition
       const toNum = (v) => (v !== '' ? Number(v) : null)
-      const nutRow = (person, nut) => ({
-        recipe_id: recipeId,
-        person,
-        calories:  Number(nut.calories) || 0,
-        protein:   Number(nut.protein)  || 0,
-        carbs:     Number(nut.carbs)    || 0,
-        fat:       Number(nut.fat)      || 0,
-        fiber:     toNum(nut.fiber),
-        sodium:    toNum(nut.sodium),
+      const nutRow = (profileId, nut) => ({
+        recipe_id:  recipeId,
+        profile_id: profileId,
+        calories:   Number(nut.calories) || 0,
+        protein:    Number(nut.protein)  || 0,
+        carbs:      Number(nut.carbs)    || 0,
+        fat:        Number(nut.fat)      || 0,
+        fiber:      toNum(nut.fiber),
+        sodium:     toNum(nut.sodium),
       })
+
+      const p0Id = profiles[0]?.id
 
       const nutRows =
         form.type === 'split'
-          ? [nutRow('kat', form.nutrition.kat), nutRow('jeremiah', form.nutrition.jeremiah)]
-          : [nutRow('kat', form.nutrition.kat), nutRow('jeremiah', form.nutrition.kat)]
+          ? profiles.map((p) => nutRow(p.id, form.nutrition[p.id] ?? EMPTY_NUT()))
+          : profiles.map((p) => nutRow(p.id, form.nutrition[p0Id] ?? EMPTY_NUT()))
 
       const { error: ne } = await supabase.from('recipe_nutrition').insert(nutRows)
       if (ne) throw ne
@@ -285,6 +293,9 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
   const handleBackdrop = (e) => {
     if (e.target === e.currentTarget) onClose()
   }
+
+  const p0 = profiles[0]
+  const p1 = profiles[1]
 
   return (
     <AnimatePresence>
@@ -334,7 +345,6 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
               </div>
             </div>
 
-            {/* Error */}
             {error && (
               <div className="mx-6 flex items-start gap-2 bg-terracotta/8 border border-terracotta/20 text-terracotta-dark rounded-xl px-4 py-3 text-sm font-body mb-2 shrink-0">
                 <AlertCircle size={14} className="mt-0.5 shrink-0" />
@@ -369,36 +379,38 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
                       />
                     </div>
 
-                    {/* Type toggle */}
-                    <div>
-                      <label className="label">Recipe type</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {[
-                          { value: 'single', label: 'Single', sub: 'Same amounts for both' },
-                          { value: 'split',  label: 'Split',  sub: 'Different amounts per person' },
-                        ].map(({ value, label, sub }) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setField('type', value)}
-                            className={`rounded-xl border-2 p-4 text-left transition-all duration-150 ${
-                              form.type === value
-                                ? 'border-terracotta bg-terracotta/6'
-                                : 'border-parchment hover:border-warm-gray-light'
-                            }`}
-                          >
-                            <p
-                              className={`font-body font-medium text-sm ${
-                                form.type === value ? 'text-terracotta-dark' : 'text-charcoal'
+                    {/* Type toggle — only shown when 2 profiles exist */}
+                    {canSplit && (
+                      <div>
+                        <label className="label">Recipe type</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[
+                            { value: 'single', label: 'Single', sub: 'Same amounts for both' },
+                            { value: 'split',  label: 'Split',  sub: 'Different amounts per person' },
+                          ].map(({ value, label, sub }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setField('type', value)}
+                              className={`rounded-xl border-2 p-4 text-left transition-all duration-150 ${
+                                form.type === value
+                                  ? 'border-terracotta bg-terracotta/6'
+                                  : 'border-parchment hover:border-warm-gray-light'
                               }`}
                             >
-                              {label}
-                            </p>
-                            <p className="font-body text-xs text-warm-gray mt-0.5">{sub}</p>
-                          </button>
-                        ))}
+                              <p
+                                className={`font-body font-medium text-sm ${
+                                  form.type === value ? 'text-terracotta-dark' : 'text-charcoal'
+                                }`}
+                              >
+                                {label}
+                              </p>
+                              <p className="font-body text-xs text-warm-gray mt-0.5">{sub}</p>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div>
                       <label className="label">Notes</label>
@@ -423,15 +435,14 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
                     transition={{ duration: 0.22 }}
                     className="space-y-3"
                   >
-                    {/* Column headers for split */}
-                    {form.type === 'split' && (
+                    {form.type === 'split' && p0 && p1 && (
                       <div
                         className="grid gap-2 text-xs font-body font-medium text-warm-gray px-1"
                         style={{ gridTemplateColumns: '2fr 1fr 1fr 32px' }}
                       >
                         <span>Ingredient</span>
-                        <span className="text-terracotta">Kat</span>
-                        <span className="text-sage-dark">Jeremiah</span>
+                        <span style={{ color: p0.accent }}>{p0.name}</span>
+                        <span style={{ color: p1.accent }}>{p1.name}</span>
                         <span />
                       </div>
                     )}
@@ -453,6 +464,7 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
                         ing={ing}
                         index={i}
                         isSplit={form.type === 'split'}
+                        profiles={profiles}
                         onChange={updateIng}
                         onRemove={removeIng}
                         isOnly={form.ingredients.length === 1}
@@ -487,26 +499,23 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
                     className="space-y-4"
                   >
                     {form.type === 'split' ? (
-                      <>
+                      profiles.map((profile) => (
                         <NutritionPanel
-                          title="Kat"
-                          accentColor="#C4622D"
-                          values={form.nutrition.kat}
-                          onChange={(field, val) => updateNut('kat', field, val)}
+                          key={profile.id}
+                          title={profile.name}
+                          accentColor={profile.accent}
+                          values={form.nutrition[profile.id] ?? EMPTY_NUT()}
+                          onChange={(field, val) => updateNut(profile.id, field, val)}
                         />
-                        <NutritionPanel
-                          title="Jeremiah"
-                          accentColor="#5A7D68"
-                          values={form.nutrition.jeremiah}
-                          onChange={(field, val) => updateNut('jeremiah', field, val)}
-                        />
-                      </>
+                      ))
                     ) : (
-                      <NutritionPanel
-                        accentColor="#C4622D"
-                        values={form.nutrition.kat}
-                        onChange={(field, val) => updateNut('kat', field, val)}
-                      />
+                      p0 && (
+                        <NutritionPanel
+                          accentColor={p0.accent}
+                          values={form.nutrition[p0.id] ?? EMPTY_NUT()}
+                          onChange={(field, val) => updateNut(p0.id, field, val)}
+                        />
+                      )
                     )}
                   </motion.div>
                 )}

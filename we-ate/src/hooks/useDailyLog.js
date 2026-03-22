@@ -25,11 +25,11 @@ export function useDailyLog(date) {
     const { data, error } = await supabase
       .from('daily_log_entries')
       .select(`
-        id, person, meal_slot, quantity, logged_at, recipe_id, quick_item_id,
+        id, profile_id, meal_slot, quantity, logged_at, recipe_id, quick_item_id,
         is_quick_add, qa_name, qa_calories, qa_protein, qa_carbs, qa_fat, qa_fiber, qa_sodium,
         recipes (
           id, name, type,
-          recipe_nutrition ( person, calories, protein, carbs, fat, fiber, sodium )
+          recipe_nutrition ( profile_id, calories, protein, carbs, fat, fiber, sodium )
         ),
         quick_items ( id, name, calories, protein, carbs, fat, fiber, sodium )
       `)
@@ -78,9 +78,9 @@ export function getEntryNutrition(entry) {
 
   if (entry.recipe_id && entry.recipes) {
     const r = entry.recipes
-    // For split: use person-specific row. For single: any row (they're identical).
+    // For split: use profile-specific row. For single: any row (identical).
     const nut =
-      (r.recipe_nutrition ?? []).find((n) => n.person === entry.person) ??
+      (r.recipe_nutrition ?? []).find((n) => n.profile_id === entry.profile_id) ??
       (r.recipe_nutrition ?? [])[0]
     if (!nut) return { name: r.name, calories: 0, protein: 0, carbs: 0, fat: 0, fiber: null, sodium: null }
     return {

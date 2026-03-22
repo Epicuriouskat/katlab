@@ -16,7 +16,7 @@ function MacroRow({ icon: Icon, label, value, color }) {
   )
 }
 
-function NutritionSummary({ nut, compact = false }) {
+function NutritionSummary({ nut }) {
   if (!nut) return <p className="text-xs text-warm-gray-light font-body">No nutrition data</p>
   return (
     <div className="space-y-1.5">
@@ -29,29 +29,31 @@ function NutritionSummary({ nut, compact = false }) {
           {nut.calories}
         </span>
       </div>
-      {!compact && (
-        <>
-          <MacroRow icon={Dumbbell} label="Protein" value={nut.protein}  color="#7B9E87" />
-          <MacroRow icon={Wheat}    label="Carbs"   value={nut.carbs}    color="#E8A44A" />
-          <MacroRow icon={Droplets} label="Fat"     value={nut.fat}      color="#E8C4B0" />
-          {nut.fiber != null && (
-            <MacroRow icon={Leaf} label="Fiber" value={nut.fiber} color="#7B9E87" />
-          )}
-        </>
+      <MacroRow icon={Dumbbell} label="Protein" value={nut.protein}  color="#7B9E87" />
+      <MacroRow icon={Wheat}    label="Carbs"   value={nut.carbs}    color="#E8A44A" />
+      <MacroRow icon={Droplets} label="Fat"     value={nut.fat}      color="#E8C4B0" />
+      {nut.fiber != null && (
+        <MacroRow icon={Leaf} label="Fiber" value={nut.fiber} color="#7B9E87" />
       )}
     </div>
   )
 }
 
-export default function RecipeCard({ recipe, onEdit, onDeleted }) {
+export default function RecipeCard({ recipe, profiles = [], onEdit, onDeleted }) {
   const [expanded, setExpanded] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const isSplit = recipe.type === 'split'
-  const katNut = (recipe.recipe_nutrition ?? []).find((n) => n.person === 'kat')
-  const jerNut = (recipe.recipe_nutrition ?? []).find((n) => n.person === 'jeremiah')
-  const displayNut = isSplit ? null : katNut // single: show once
+
+  // Find nutrition for each profile by profile_id
+  const nutByProfile = (recipe.recipe_nutrition ?? []).reduce((acc, n) => {
+    acc[n.profile_id] = n
+    return acc
+  }, {})
+
+  const p0Nut = profiles[0] ? nutByProfile[profiles[0].id] : null
+  const p1Nut = profiles[1] ? nutByProfile[profiles[1].id] : null
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -63,14 +65,12 @@ export default function RecipeCard({ recipe, onEdit, onDeleted }) {
 
   return (
     <div className="card overflow-hidden">
-      {/* Card header — always visible */}
+      {/* Card header */}
       <div className="flex items-center gap-3 p-4">
-        {/* Expand button */}
         <button
           onClick={() => setExpanded((v) => !v)}
           className="flex-1 flex items-center gap-3 text-left min-w-0"
         >
-          {/* Type indicator */}
           <span
             className={`shrink-0 w-2 h-2 rounded-full mt-0.5 ${
               isSplit ? 'bg-terracotta' : 'bg-sage'
@@ -97,14 +97,14 @@ export default function RecipeCard({ recipe, onEdit, onDeleted }) {
               </span>
 
               {/* Calorie preview */}
-              {!isSplit && katNut && (
+              {!isSplit && p0Nut && (
                 <span className="font-body text-xs text-warm-gray">
-                  {katNut.calories} kcal
+                  {p0Nut.calories} kcal
                 </span>
               )}
-              {isSplit && katNut && jerNut && (
+              {isSplit && p0Nut && p1Nut && (
                 <span className="font-body text-xs text-warm-gray">
-                  {katNut.calories} / {jerNut.calories} kcal
+                  {p0Nut.calories} / {p1Nut.calories} kcal
                 </span>
               )}
             </div>
@@ -133,7 +133,6 @@ export default function RecipeCard({ recipe, onEdit, onDeleted }) {
           >
             <div className="px-4 pb-4 space-y-4 border-t border-parchment pt-4">
 
-              {/* Notes */}
               {recipe.notes && (
                 <p className="font-body text-sm text-warm-gray italic">{recipe.notes}</p>
               )}
@@ -150,8 +149,12 @@ export default function RecipeCard({ recipe, onEdit, onDeleted }) {
                         <span className="font-body text-sm text-charcoal">{ing.ingredient_name}</span>
                         {isSplit ? (
                           <div className="flex gap-3 shrink-0 text-xs font-body">
-                            <span className="text-terracotta">{ing.kat_amount || '—'}</span>
-                            <span className="text-sage-dark">{ing.jeremiah_amount || '—'}</span>
+                            <span style={{ color: profiles[0]?.accent ?? '#C4622D' }}>
+                              {ing.kat_amount || '—'}
+                            </span>
+                            <span style={{ color: profiles[1]?.accent ?? '#5A7D68' }}>
+                              {ing.jeremiah_amount || '—'}
+                            </span>
                           </div>
                         ) : (
                           <span className="font-body text-xs text-warm-gray shrink-0">
@@ -160,10 +163,10 @@ export default function RecipeCard({ recipe, onEdit, onDeleted }) {
                         )}
                       </div>
                     ))}
-                    {isSplit && (
+                    {isSplit && profiles.length >= 2 && (
                       <div className="flex justify-end gap-3 pt-1 text-[10px] font-body font-medium tracking-wide">
-                        <span className="text-terracotta">Kat</span>
-                        <span className="text-sage-dark">Jeremiah</span>
+                        <span style={{ color: profiles[0].accent }}>{profiles[0].name}</span>
+                        <span style={{ color: profiles[1].accent }}>{profiles[1].name}</span>
                       </div>
                     )}
                   </div>
@@ -175,20 +178,30 @@ export default function RecipeCard({ recipe, onEdit, onDeleted }) {
                 <p className="font-body text-[10px] font-medium text-warm-gray tracking-widest uppercase mb-2">
                   Nutrition
                 </p>
-                {isSplit ? (
+                {isSplit && profiles.length >= 2 ? (
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-terracotta/6 border border-terracotta/15 p-3 space-y-1.5">
-                      <p className="font-display text-sm font-medium text-terracotta-dark mb-2">Kat</p>
-                      <NutritionSummary nut={katNut} />
-                    </div>
-                    <div className="rounded-xl bg-sage/8 border border-sage/20 p-3 space-y-1.5">
-                      <p className="font-display text-sm font-medium text-sage-dark mb-2">Jeremiah</p>
-                      <NutritionSummary nut={jerNut} />
-                    </div>
+                    {profiles.map((profile) => (
+                      <div
+                        key={profile.id}
+                        className="rounded-xl border p-3 space-y-1.5"
+                        style={{
+                          backgroundColor: profile.accent + '0d',
+                          borderColor: profile.accent + '26',
+                        }}
+                      >
+                        <p
+                          className="font-display text-sm font-medium mb-2"
+                          style={{ color: profile.accent }}
+                        >
+                          {profile.name}
+                        </p>
+                        <NutritionSummary nut={nutByProfile[profile.id]} />
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="rounded-xl bg-cream border border-parchment p-3 space-y-1.5">
-                    <NutritionSummary nut={displayNut} />
+                    <NutritionSummary nut={p0Nut} />
                   </div>
                 )}
               </div>

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Search, BookOpen, Zap, Users, User, Flame, Dumbbell, Wheat, Droplets, Plus, ChevronLeft, Leaf, FlaskConical } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from './AuthProvider'
 
 const SLOT_LABELS = {
   breakfast: 'Breakfast',
@@ -10,20 +11,15 @@ const SLOT_LABELS = {
   snacks:    'Snacks',
 }
 
-const PERSON_META = {
-  kat:      { name: 'Kat',      accent: '#C4622D' },
-  jeremiah: { name: 'Jeremiah', accent: '#5A7D68' },
-}
-
 const PORTION_PRESETS = [0.5, 1, 1.5, 2]
 
 const EMPTY_QA = { name: '', calories: '', protein: '', carbs: '', fat: '', fiber: '', sodium: '' }
 
-function getRecipeNutForPerson(recipe, person) {
+function getRecipeNutForProfile(recipe, profileId) {
   const rows = recipe.recipe_nutrition ?? []
   return (
-    rows.find((n) => n.person === person) ??
-    rows.find((n) => n.person === 'kat') ??
+    rows.find((n) => n.profile_id === profileId) ??
+    rows[0] ??
     null
   )
 }
@@ -113,12 +109,10 @@ function PortionView({ itemName, itemType, baseNut, portion, onPortionChange, on
 
   return (
     <>
-      {/* Scrollable body */}
       <div
         className="flex-1 overflow-y-auto px-5 pb-2 space-y-4 min-h-0"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        {/* Item label */}
         <div className="pt-1">
           <p className="font-body text-xs text-warm-gray-light uppercase tracking-wider mb-0.5">
             {itemType === 'quick' ? 'Quick item' : 'Recipe'}
@@ -126,7 +120,6 @@ function PortionView({ itemName, itemType, baseNut, portion, onPortionChange, on
           <p className="font-display text-xl font-medium text-charcoal">{itemName}</p>
         </div>
 
-        {/* Portion presets */}
         <div>
           <p className="label mb-2">Portion size</p>
           <div className="grid grid-cols-4 gap-2 mb-2">
@@ -158,7 +151,6 @@ function PortionView({ itemName, itemType, baseNut, portion, onPortionChange, on
           />
         </div>
 
-        {/* Calculated totals */}
         {totalNut ? (
           <div className="rounded-2xl border border-parchment bg-cream/50 p-4">
             <p className="label mb-3">Calculated totals</p>
@@ -222,7 +214,6 @@ function PortionView({ itemName, itemType, baseNut, portion, onPortionChange, on
         )}
       </div>
 
-      {/* Footer */}
       <div className="px-5 py-4 border-t border-parchment flex gap-3 shrink-0">
         <button onClick={onBack} className="btn-ghost px-4">
           <ChevronLeft size={15} className="-ml-0.5" />
@@ -247,7 +238,7 @@ function PortionView({ itemName, itemType, baseNut, portion, onPortionChange, on
 
 // ── Quick Add inline form ─────────────────────────────────────────────────────
 
-function QuickAddView({ person, mealSlot, date, onAdded, onClose }) {
+function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
   const [form, setForm]     = useState(EMPTY_QA)
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState(null)
@@ -264,7 +255,7 @@ function QuickAddView({ person, mealSlot, date, onAdded, onClose }) {
     try {
       const { error: e } = await supabase.from('daily_log_entries').insert({
         date,
-        person,
+        profile_id:    profileId,
         meal_slot:     mealSlot,
         recipe_id:     null,
         quick_item_id: null,
@@ -362,15 +353,16 @@ function QuickAddView({ person, mealSlot, date, onAdded, onClose }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AddLogEntryModal({
-  open, person, mealSlot, date, onClose, onAdded, recipes, quickItems,
+  open, profileId, mealSlot, date, onClose, onAdded, recipes, quickItems,
 }) {
-  const [search, setSearch]               = useState('')
-  const [tab, setTab]                     = useState('recipes')
-  const [adding, setAdding]               = useState(null)
-  const [selectedItem, setSelectedItem]   = useState(null)  // { id, name, type, baseNut }
-  const [portion, setPortion]             = useState(1)
+  const { profiles } = useAuth()
+  const [search, setSearch]             = useState('')
+  const [tab, setTab]                   = useState('quick')
+  const [adding, setAdding]             = useState(null)
+  const [selectedItem, setSelectedItem] = useState(null)  // { id, name, type, baseNut }
+  const [portion, setPortion]           = useState(1)
 
-  const meta = PERSON_META[person] ?? PERSON_META.kat
+  const activeProfile = profiles.find((p) => p.id === profileId) ?? profiles[0]
 
   useEffect(() => {
     if (open) {
@@ -398,7 +390,7 @@ export default function AddLogEntryModal({
     try {
       const { error } = await supabase.from('daily_log_entries').insert({
         date,
-        person,
+        profile_id:    profileId,
         meal_slot:     mealSlot,
         recipe_id:     recipeId    ?? null,
         quick_item_id: quickItemId ?? null,
@@ -448,9 +440,9 @@ export default function AddLogEntryModal({
                 <div>
                   <p
                     className="font-body text-[11px] font-medium tracking-widest uppercase"
-                    style={{ color: meta.accent }}
+                    style={{ color: activeProfile?.accent ?? '#C4622D' }}
                   >
-                    {meta.name} · {SLOT_LABELS[mealSlot] ?? mealSlot}
+                    {activeProfile?.name} · {SLOT_LABELS[mealSlot] ?? mealSlot}
                   </p>
                   <h2 className="font-display text-2xl font-medium text-charcoal mt-0.5">
                     {modalTitle}
@@ -464,7 +456,6 @@ export default function AddLogEntryModal({
                 </button>
               </div>
 
-              {/* Search — hidden in portion view and quick-add form */}
               {showSearch && (
                 <div className="relative">
                   <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-warm-gray-light" />
@@ -479,7 +470,6 @@ export default function AddLogEntryModal({
                 </div>
               )}
 
-              {/* Tabs — hidden when a recipe is selected (portion view) */}
               {showTabs && (
                 <div className="flex gap-1 bg-parchment/60 rounded-xl p-1">
                   {[
@@ -504,7 +494,7 @@ export default function AddLogEntryModal({
               )}
             </div>
 
-            {/* Body — three views */}
+            {/* Body */}
             {selectedItem ? (
               <PortionView
                 itemName={selectedItem.name}
@@ -522,14 +512,13 @@ export default function AddLogEntryModal({
               />
             ) : tab === 'quickadd' ? (
               <QuickAddView
-                person={person}
+                profileId={profileId}
                 mealSlot={mealSlot}
                 date={date}
                 onAdded={onAdded}
                 onClose={onClose}
               />
             ) : (
-              /* Scrollable recipe / quick-item list */
               <div
                 className="flex-1 overflow-y-auto px-5 pb-5 space-y-2 min-h-0"
                 style={{ WebkitOverflowScrolling: 'touch' }}
@@ -538,7 +527,7 @@ export default function AddLogEntryModal({
                   filteredRecipes.length === 0
                     ? <EmptyList search={search} tab="recipes" />
                     : filteredRecipes.map((recipe) => {
-                        const nut = getRecipeNutForPerson(recipe, person)
+                        const nut = getRecipeNutForProfile(recipe, profileId)
                         const TypeBadge = (
                           <span className={`shrink-0 text-[10px] font-body font-medium px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${
                             recipe.type === 'split'
