@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Check, Flame, Dumbbell, Wheat, Droplets, Leaf } from 'lucide-react'
+import { Check, Flame, Dumbbell, Wheat, Droplets, Leaf, FlaskConical } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useTargets } from '../hooks/useTargets'
 import PageHeader from '../components/PageHeader'
@@ -12,21 +12,23 @@ const USER_META = {
 }
 
 const FIELDS = [
-  { key: 'calories', label: 'Calories', unit: 'kcal', Icon: Flame,    required: true },
-  { key: 'protein',  label: 'Protein',  unit: 'g',    Icon: Dumbbell, required: true },
-  { key: 'carbs',    label: 'Carbs',    unit: 'g',    Icon: Wheat,    required: true },
-  { key: 'fat',      label: 'Fat',      unit: 'g',    Icon: Droplets, required: true },
-  { key: 'fiber',    label: 'Fiber',    unit: 'g',    Icon: Leaf,     required: false },
+  { key: 'calories', label: 'Calories', unit: 'kcal', Icon: Flame,        required: true },
+  { key: 'protein',  label: 'Protein',  unit: 'g',    Icon: Dumbbell,     required: true },
+  { key: 'carbs',    label: 'Carbs',    unit: 'g',    Icon: Wheat,        required: true },
+  { key: 'fat',      label: 'Fat',      unit: 'g',    Icon: Droplets,     required: true },
+  { key: 'fiber',    label: 'Fiber',    unit: 'g',    Icon: Leaf,         required: false },
+  { key: 'sodium',   label: 'Sodium',   unit: 'mg',   Icon: FlaskConical, required: false },
 ]
 
 function toForm(t) {
-  if (!t) return { calories: '', protein: '', carbs: '', fat: '', fiber: '' }
+  if (!t) return { calories: '', protein: '', carbs: '', fat: '', fiber: '', sodium: '' }
   return {
     calories: t.calories?.toString() ?? '',
     protein:  t.protein?.toString()  ?? '',
     carbs:    t.carbs?.toString()    ?? '',
     fat:      t.fat?.toString()      ?? '',
-    fiber:    t.fiber != null ? t.fiber.toString() : '',
+    fiber:    t.fiber  != null ? t.fiber.toString()  : '',
+    sodium:   t.sodium != null ? t.sodium.toString() : '',
   }
 }
 
@@ -58,7 +60,8 @@ function PersonForm({ person, initialValues, onSaved }) {
           protein:  Number(form.protein)  || 0,
           carbs:    Number(form.carbs)    || 0,
           fat:      Number(form.fat)      || 0,
-          fiber:    form.fiber !== '' ? Number(form.fiber) : null,
+          fiber:    form.fiber  !== '' ? Number(form.fiber)  : null,
+          sodium:   form.sodium !== '' ? Number(form.sodium) : null,
         },
         { onConflict: 'person' }
       )

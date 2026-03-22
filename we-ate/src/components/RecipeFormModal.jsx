@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Plus, Trash2, Flame, Dumbbell, Wheat, Droplets, Leaf, AlertCircle, ChevronLeft } from 'lucide-react'
+import { X, Plus, Trash2, Flame, Dumbbell, Wheat, Droplets, Leaf, AlertCircle, ChevronLeft, FlaskConical } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
 const EMPTY_ING = () => ({ ingredient_name: '', kat_amount: '', jeremiah_amount: '' })
-const EMPTY_NUT = () => ({ calories: '', protein: '', carbs: '', fat: '', fiber: '' })
+const EMPTY_NUT = () => ({ calories: '', protein: '', carbs: '', fat: '', fiber: '', sodium: '' })
 const initForm = () => ({
   name: '',
   type: 'single',
@@ -23,6 +23,7 @@ function nutFromRow(row) {
     carbs:    row.carbs?.toString()    ?? '',
     fat:      row.fat?.toString()      ?? '',
     fiber:    row.fiber?.toString()    ?? '',
+    sodium:   row.sodium?.toString()   ?? '',
   }
 }
 
@@ -49,11 +50,12 @@ function populateForm(recipe) {
 // ── sub-components ─────────────────────────────────────────────────────────
 
 const MACRO_FIELDS = [
-  { key: 'calories', label: 'Calories',   Icon: Flame,    required: true, span: 2 },
-  { key: 'protein',  label: 'Protein (g)', Icon: Dumbbell, span: 1 },
-  { key: 'carbs',    label: 'Carbs (g)',   Icon: Wheat,    span: 1 },
-  { key: 'fat',      label: 'Fat (g)',     Icon: Droplets, span: 1 },
-  { key: 'fiber',    label: 'Fiber (g)',   Icon: Leaf,     span: 1 },
+  { key: 'calories', label: 'Calories',    Icon: Flame,         required: true, span: 2 },
+  { key: 'protein',  label: 'Protein (g)', Icon: Dumbbell,      span: 1 },
+  { key: 'carbs',    label: 'Carbs (g)',   Icon: Wheat,         span: 1 },
+  { key: 'fat',      label: 'Fat (g)',     Icon: Droplets,      span: 1 },
+  { key: 'fiber',    label: 'Fiber (g)',   Icon: Leaf,          span: 1 },
+  { key: 'sodium',   label: 'Sodium (mg)', Icon: FlaskConical,  span: 2 },
 ]
 
 function NutritionPanel({ title, accentColor, values, onChange }) {
@@ -260,6 +262,7 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
         carbs:     Number(nut.carbs)    || 0,
         fat:       Number(nut.fat)      || 0,
         fiber:     toNum(nut.fiber),
+        sodium:    toNum(nut.sodium),
       })
 
       const nutRows =
@@ -291,7 +294,7 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ backgroundColor: 'rgba(44, 36, 22, 0.5)', backdropFilter: 'blur(6px)' }}
           onClick={handleBackdrop}
         >
@@ -300,8 +303,8 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full sm:max-w-lg bg-warm-white rounded-t-3xl sm:rounded-3xl border border-parchment shadow-2xl flex flex-col"
-            style={{ maxHeight: '90dvh' }}
+            className="w-full max-w-lg bg-warm-white rounded-3xl border border-parchment shadow-2xl flex flex-col"
+            style={{ maxHeight: '90vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -340,7 +343,7 @@ export default function RecipeFormModal({ open, onClose, onSaved, recipe = null 
             )}
 
             {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto px-6 pb-4">
+            <div className="flex-1 overflow-y-auto px-6 pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
               <AnimatePresence mode="wait">
 
                 {/* ── Step 0: Details ── */}

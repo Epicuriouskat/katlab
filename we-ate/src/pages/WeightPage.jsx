@@ -152,7 +152,7 @@ function WeightEntryForm({ person, personRows, onSaved }) {
   const isEditing = personRows.some(r => r.date === selectedDate)
 
   return (
-    <div className="card p-4">
+    <div className="card p-4 overflow-hidden">
       <div className="flex items-center gap-2.5 mb-3">
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-white font-display text-lg italic shrink-0"
@@ -168,13 +168,13 @@ function WeightEntryForm({ person, personRows, onSaved }) {
         )}
       </div>
 
-      <div className="mb-2">
+      <div className="mb-2 min-w-0">
         <input
           type="date"
           max={today}
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="input-field w-full"
+          className="input-field w-full max-w-full"
         />
       </div>
 
@@ -254,13 +254,13 @@ function WeightCell({ row, accent, onRefetch }) {
   if (editing) {
     return (
       <td className="px-4 py-3 align-middle">
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 min-w-0">
           <input
             type="date"
             max={today}
             value={editDate}
             onChange={(e) => setEditDate(e.target.value)}
-            className="input-field py-1.5 px-2.5 text-xs"
+            className="input-field py-1.5 px-2.5 text-xs w-full max-w-full"
           />
           <div className="flex items-center gap-1.5">
             <input

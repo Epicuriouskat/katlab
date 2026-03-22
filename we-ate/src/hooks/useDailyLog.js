@@ -26,11 +26,12 @@ export function useDailyLog(date) {
       .from('daily_log_entries')
       .select(`
         id, person, meal_slot, quantity, logged_at, recipe_id, quick_item_id,
+        is_quick_add, qa_name, qa_calories, qa_protein, qa_carbs, qa_fat, qa_fiber, qa_sodium,
         recipes (
           id, name, type,
-          recipe_nutrition ( person, calories, protein, carbs, fat, fiber )
+          recipe_nutrition ( person, calories, protein, carbs, fat, fiber, sodium )
         ),
-        quick_items ( id, name, calories, protein, carbs, fat, fiber )
+        quick_items ( id, name, calories, protein, carbs, fat, fiber, sodium )
       `)
       .eq('date', date)
       .order('logged_at')
@@ -50,6 +51,18 @@ export function useDailyLog(date) {
 export function getEntryNutrition(entry) {
   const qty = Number(entry.quantity) || 1
 
+  if (entry.is_quick_add) {
+    return {
+      name:     entry.qa_name ?? 'Quick add',
+      calories: (entry.qa_calories || 0) * qty,
+      protein:  (entry.qa_protein  || 0) * qty,
+      carbs:    (entry.qa_carbs    || 0) * qty,
+      fat:      (entry.qa_fat      || 0) * qty,
+      fiber:    entry.qa_fiber  != null ? entry.qa_fiber  * qty : null,
+      sodium:   entry.qa_sodium != null ? entry.qa_sodium * qty : null,
+    }
+  }
+
   if (entry.quick_item_id && entry.quick_items) {
     const qi = entry.quick_items
     return {
@@ -58,7 +71,8 @@ export function getEntryNutrition(entry) {
       protein:  (qi.protein  || 0) * qty,
       carbs:    (qi.carbs    || 0) * qty,
       fat:      (qi.fat      || 0) * qty,
-      fiber:    qi.fiber != null ? qi.fiber * qty : null,
+      fiber:    qi.fiber  != null ? qi.fiber  * qty : null,
+      sodium:   qi.sodium != null ? qi.sodium * qty : null,
     }
   }
 
@@ -68,18 +82,19 @@ export function getEntryNutrition(entry) {
     const nut =
       (r.recipe_nutrition ?? []).find((n) => n.person === entry.person) ??
       (r.recipe_nutrition ?? [])[0]
-    if (!nut) return { name: r.name, calories: 0, protein: 0, carbs: 0, fat: 0, fiber: null }
+    if (!nut) return { name: r.name, calories: 0, protein: 0, carbs: 0, fat: 0, fiber: null, sodium: null }
     return {
       name:     r.name,
       calories: (nut.calories || 0) * qty,
       protein:  (nut.protein  || 0) * qty,
       carbs:    (nut.carbs    || 0) * qty,
       fat:      (nut.fat      || 0) * qty,
-      fiber:    nut.fiber != null ? nut.fiber * qty : null,
+      fiber:    nut.fiber  != null ? nut.fiber  * qty : null,
+      sodium:   nut.sodium != null ? nut.sodium * qty : null,
     }
   }
 
-  return { name: 'Unknown', calories: 0, protein: 0, carbs: 0, fat: 0, fiber: null }
+  return { name: 'Unknown', calories: 0, protein: 0, carbs: 0, fat: 0, fiber: null, sodium: null }
 }
 
 export function computeTotals(entries) {
@@ -91,9 +106,10 @@ export function computeTotals(entries) {
         protein:  acc.protein  + n.protein,
         carbs:    acc.carbs    + n.carbs,
         fat:      acc.fat      + n.fat,
+        sodium:   acc.sodium   + (n.sodium ?? 0),
       }
     },
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    { calories: 0, protein: 0, carbs: 0, fat: 0, sodium: 0 }
   )
 }
 

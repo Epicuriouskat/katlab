@@ -3,8 +3,8 @@ import { supabase } from '../lib/supabase'
 
 // Fallback defaults while Supabase loads or if no rows exist yet
 export const TARGET_DEFAULTS = {
-  kat:      { calories: 1800, protein: 130, carbs: 160, fat: 60,  fiber: null },
-  jeremiah: { calories: 2400, protein: 200, carbs: 220, fat: 80,  fiber: null },
+  kat:      { calories: 1800, protein: 130, carbs: 160, fat: 60, fiber: null, sodium: 2300 },
+  jeremiah: { calories: 2400, protein: 200, carbs: 220, fat: 80, fiber: null, sodium: 2300 },
 }
 
 export function useTargets() {
@@ -22,7 +22,8 @@ export function useTargets() {
             protein:  row.protein,
             carbs:    row.carbs,
             fat:      row.fat,
-            fiber:    row.fiber ?? null,
+            fiber:    row.fiber  ?? null,
+            sodium:   row.sodium ?? 2300,
           }
         }
       })

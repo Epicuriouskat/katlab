@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import PageHeader from '../components/PageHeader'
 import { useDailyLog, getEntryNutrition, computeTotals, useMidnightReset, getLocalDate } from '../hooks/useDailyLog'
@@ -10,6 +10,8 @@ import AddLogEntryModal from '../components/AddLogEntryModal'
 import BottomNav from '../components/BottomNav'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+
+const PORTION_PRESETS = [0.5, 1, 1.5, 2]
 
 const MEAL_SLOTS = [
   { id: 'breakfast', label: 'Breakfast', emoji: '🌅' },
@@ -102,6 +104,9 @@ function MacroTotals({ entries, person, allTargets }) {
       <MacroBar label="Protein"  value={totals.protein}  target={targets.protein}  unit="g" />
       <MacroBar label="Carbs"    value={totals.carbs}    target={targets.carbs}    unit="g" />
       <MacroBar label="Fat"      value={totals.fat}      target={targets.fat}      unit="g" />
+      {targets.sodium > 0 && (
+        <MacroBar label="Sodium" value={totals.sodium} target={targets.sodium} unit="mg" />
+      )}
     </div>
   )
 }
@@ -111,11 +116,83 @@ function MacroTotals({ entries, person, allTargets }) {
 function LogEntryRow({ entry, onRemoved }) {
   const nut = useMemo(() => getEntryNutrition(entry), [entry])
   const [removing, setRemoving] = useState(false)
+  const [editing, setEditing]   = useState(false)
+  const [portion, setPortion]   = useState(Number(entry.quantity) || 1)
+  const [saving, setSaving]     = useState(false)
 
   const handleRemove = async () => {
     setRemoving(true)
     await supabase.from('daily_log_entries').delete().eq('id', entry.id)
     onRemoved()
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    await supabase.from('daily_log_entries').update({ quantity: portion }).eq('id', entry.id)
+    setSaving(false)
+    setEditing(false)
+    onRemoved()
+  }
+
+  const cancelEdit = () => {
+    setEditing(false)
+    setPortion(Number(entry.quantity) || 1)
+  }
+
+  if (editing) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="py-2 space-y-2"
+      >
+        <div className="flex items-center justify-between">
+          <p className="font-body text-sm font-medium text-charcoal truncate pr-2">{nut.name}</p>
+          <button onClick={cancelEdit} className="text-warm-gray-light hover:text-warm-gray transition-colors shrink-0">
+            <X size={13} />
+          </button>
+        </div>
+        <div className="flex gap-1.5">
+          {PORTION_PRESETS.map((p) => (
+            <button
+              key={p}
+              onClick={() => setPortion(p)}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-body font-medium border transition-all ${
+                portion === p
+                  ? 'bg-terracotta text-cream border-terracotta'
+                  : 'bg-cream text-warm-gray border-parchment hover:border-terracotta-lighter'
+              }`}
+            >
+              {p}×
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            min="0.1"
+            step="0.1"
+            value={portion}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value)
+              if (!isNaN(v) && v > 0) setPortion(Math.round(v * 10) / 10)
+            }}
+            className="input-field py-1.5 text-sm text-center flex-1"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-1.5 rounded-full bg-terracotta text-cream text-xs font-body font-medium hover:bg-terracotta-dark transition-colors disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+          >
+            {saving
+              ? <span className="w-3 h-3 border border-cream/30 border-t-cream rounded-full animate-spin" />
+              : <Check size={12} />
+            }
+            Save
+          </button>
+        </div>
+      </motion.div>
+    )
   }
 
   return (
@@ -126,10 +203,18 @@ function LogEntryRow({ entry, onRemoved }) {
       transition={{ duration: 0.18 }}
       className="flex items-center gap-2 py-1.5 min-w-0"
     >
-      <div className="flex-1 min-w-0">
+      <button
+        onClick={() => setEditing(true)}
+        className="flex-1 min-w-0 text-left hover:opacity-70 transition-opacity"
+      >
         <p className="font-body text-sm text-charcoal truncate leading-snug">{nut.name}</p>
-        <p className="font-body text-[11px] text-warm-gray">{Math.round(nut.calories)} kcal</p>
-      </div>
+        <p className="font-body text-[11px] text-warm-gray">
+          {Math.round(nut.calories)} kcal
+          {Number(entry.quantity) !== 1 && (
+            <span className="text-warm-gray-light ml-1">· {entry.quantity}×</span>
+          )}
+        </p>
+      </button>
       <button
         onClick={handleRemove}
         disabled={removing}

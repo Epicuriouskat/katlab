@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Flame, Dumbbell, Wheat, Droplets, Leaf, AlertCircle } from 'lucide-react'
+import { X, Flame, Dumbbell, Wheat, Droplets, Leaf, AlertCircle, FlaskConical } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
-const EMPTY = { name: '', calories: '', protein: '', carbs: '', fat: '', fiber: '' }
+const EMPTY = { name: '', calories: '', protein: '', carbs: '', fat: '', fiber: '', sodium: '' }
 
 const FIELDS = [
-  { key: 'calories', label: 'Calories',    Icon: Flame,    required: true, span: 2 },
-  { key: 'protein',  label: 'Protein (g)', Icon: Dumbbell, span: 1 },
-  { key: 'carbs',    label: 'Carbs (g)',   Icon: Wheat,    span: 1 },
-  { key: 'fat',      label: 'Fat (g)',     Icon: Droplets, span: 1 },
-  { key: 'fiber',    label: 'Fiber (g)',   Icon: Leaf,     span: 1 },
+  { key: 'calories', label: 'Calories',    Icon: Flame,        required: true, span: 2 },
+  { key: 'protein',  label: 'Protein (g)', Icon: Dumbbell,     span: 1 },
+  { key: 'carbs',    label: 'Carbs (g)',   Icon: Wheat,        span: 1 },
+  { key: 'fat',      label: 'Fat (g)',     Icon: Droplets,     span: 1 },
+  { key: 'fiber',    label: 'Fiber (g)',   Icon: Leaf,         span: 1 },
+  { key: 'sodium',   label: 'Sodium (mg)', Icon: FlaskConical, span: 2 },
 ]
 
 export default function QuickItemFormModal({ open, onClose, onSaved, item = null }) {
@@ -31,6 +32,7 @@ export default function QuickItemFormModal({ open, onClose, onSaved, item = null
               carbs:    item.carbs?.toString()    ?? '',
               fat:      item.fat?.toString()      ?? '',
               fiber:    item.fiber?.toString()    ?? '',
+              sodium:   item.sodium?.toString()   ?? '',
             }
           : EMPTY
       )
@@ -50,7 +52,8 @@ export default function QuickItemFormModal({ open, onClose, onSaved, item = null
         protein:  Number(form.protein)  || 0,
         carbs:    Number(form.carbs)    || 0,
         fat:      Number(form.fat)      || 0,
-        fiber:    form.fiber !== '' ? Number(form.fiber) : null,
+        fiber:    form.fiber  !== '' ? Number(form.fiber)  : null,
+        sodium:   form.sodium !== '' ? Number(form.sodium) : null,
       }
 
       if (isEdit) {
@@ -82,7 +85,7 @@ export default function QuickItemFormModal({ open, onClose, onSaved, item = null
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ backgroundColor: 'rgba(44, 36, 22, 0.5)', backdropFilter: 'blur(6px)' }}
           onClick={handleBackdrop}
         >
@@ -91,12 +94,13 @@ export default function QuickItemFormModal({ open, onClose, onSaved, item = null
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full sm:max-w-md bg-warm-white rounded-t-3xl sm:rounded-3xl border border-parchment shadow-xl"
+            className="w-full max-w-md bg-warm-white rounded-3xl border border-parchment shadow-xl flex flex-col"
+            style={{ maxHeight: '90vh' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
               {/* Header */}
-              <div className="flex items-start justify-between px-6 pt-6 pb-4">
+              <div className="flex items-start justify-between px-6 pt-6 pb-4 shrink-0">
                 <div>
                   <h2 className="font-display text-2xl font-medium text-charcoal">
                     {isEdit ? 'Edit item' : 'Quick item'}
@@ -114,7 +118,8 @@ export default function QuickItemFormModal({ open, onClose, onSaved, item = null
                 </button>
               </div>
 
-              <div className="px-6 pb-6 space-y-4">
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {error && (
                   <div className="flex items-start gap-2 bg-terracotta/8 border border-terracotta/20 text-terracotta-dark rounded-xl px-4 py-3 text-sm font-body">
                     <AlertCircle size={14} className="mt-0.5 shrink-0" />
@@ -156,22 +161,23 @@ export default function QuickItemFormModal({ open, onClose, onSaved, item = null
                     </div>
                   ))}
                 </div>
+              </div>
 
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={onClose} className="btn-ghost flex-1 border border-parchment">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={saving} className="btn-primary flex-1">
-                    {saving ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="w-4 h-4 border-2 border-cream/40 border-t-cream rounded-full animate-spin" />
-                        Saving…
-                      </span>
-                    ) : (
-                      isEdit ? 'Save changes' : 'Add item'
-                    )}
-                  </button>
-                </div>
+              {/* Footer */}
+              <div className="flex gap-3 px-6 py-4 border-t border-parchment shrink-0">
+                <button type="button" onClick={onClose} className="btn-ghost flex-1 border border-parchment">
+                  Cancel
+                </button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1">
+                  {saving ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-cream/40 border-t-cream rounded-full animate-spin" />
+                      Saving…
+                    </span>
+                  ) : (
+                    isEdit ? 'Save changes' : 'Add item'
+                  )}
+                </button>
               </div>
             </form>
           </motion.div>
