@@ -42,7 +42,9 @@ export function AuthProvider({ children }) {
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session)
       if (session) {
+        if (_event === 'SIGNED_IN') setLoading(true)
         try { await loadProfiles() } catch (e) { console.error('loadProfiles failed', e) }
+        if (_event === 'SIGNED_IN') setLoading(false)
       } else {
         setProfiles([])
         setActiveProfileIdState(null)
