@@ -3,12 +3,20 @@ import { supabase } from '../lib/supabase'
 import { applyStyle } from '../lib/profileStyles'
 
 const AuthContext = createContext(null)
+const PROFILES_CACHE_KEY = 'we-ate-profiles'
+
+function readProfilesCache() {
+  try {
+    const cached = localStorage.getItem(PROFILES_CACHE_KEY)
+    return cached ? JSON.parse(cached) : null
+  } catch { return null }
+}
 
 export function AuthProvider({ children }) {
   const [session,          setSession]          = useState(null)
   const [loading,          setLoading]          = useState(true)
-  const [profiles,         setProfiles]         = useState([])
-  const [profilesReady,    setProfilesReady]    = useState(false)
+  const [profiles,         setProfiles]         = useState(() => readProfilesCache() ?? [])
+  const [profilesReady,    setProfilesReady]    = useState(() => !!readProfilesCache())
   const [activeProfileId,  setActiveProfileIdState] = useState(() => {
     return localStorage.getItem('we-ate-active-profile') || null
   })
@@ -18,20 +26,22 @@ export function AuthProvider({ children }) {
       .from('profiles')
       .select('id, name, created_at')
       .order('created_at')
-    setProfiles((data ?? []).map(applyStyle))
+    const list = (data ?? []).map(applyStyle)
+    setProfiles(list)
     setProfilesReady(true)
+    try { localStorage.setItem(PROFILES_CACHE_KEY, JSON.stringify(list)) } catch {}
   }, [])
 
   useEffect(() => {
     supabase.auth.getSession()
       .then(async ({ data: { session } }) => {
         setSession(session)
+        setLoading(false)  // unblock routing as soon as session is known
         try {
           if (session) await loadProfiles()
         } catch (e) {
           console.error('loadProfiles failed', e)
-        } finally {
-          setLoading(false)
+          if (session) setProfilesReady(true)  // don't block forever on error
         }
       })
       .catch((e) => {
@@ -50,6 +60,7 @@ export function AuthProvider({ children }) {
         setProfilesReady(false)
         setActiveProfileIdState(null)
         localStorage.removeItem('we-ate-active-profile')
+        try { localStorage.removeItem(PROFILES_CACHE_KEY) } catch {}
       }
     })
 
