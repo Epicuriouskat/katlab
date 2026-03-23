@@ -33,10 +33,14 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    // Fallback: if INITIAL_SESSION never fires (Supabase lock issue), unblock after 3s
+    const fallback = setTimeout(() => setLoading(false), 3000)
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
 
       if (event === 'INITIAL_SESSION') {
+        clearTimeout(fallback)
         // Fire-and-forget profile refresh — cache already unblocks routing instantly
         if (session) loadProfiles().catch(e => console.error('loadProfiles failed', e))
         setLoading(false)
@@ -52,7 +56,10 @@ export function AuthProvider({ children }) {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(fallback)
+      subscription.unsubscribe()
+    }
   }, [loadProfiles])
 
   const setActiveProfileId = (id) => {
