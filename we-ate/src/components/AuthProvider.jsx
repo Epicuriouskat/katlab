@@ -22,10 +22,14 @@ export function AuthProvider({ children }) {
   })
 
   const loadProfiles = useCallback(async () => {
-    const { data } = await supabase
+    const query = supabase
       .from('profiles')
       .select('id, name, created_at')
       .order('created_at')
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('profiles timeout')), 8000)
+    )
+    const { data } = await Promise.race([query, timeout])
     const list = (data ?? []).map(applyStyle)
     setProfiles(list)
     setProfilesReady(true)
@@ -33,20 +37,31 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    // Fallback: if INITIAL_SESSION never fires (Supabase lock issue), unblock after 3s
-    const fallback = setTimeout(() => setLoading(false), 3000)
+    // Fallback: if INITIAL_SESSION never fires, unblock everything after 4s
+    const fallback = setTimeout(() => {
+      setLoading(false)
+      setProfilesReady(true)
+    }, 4000)
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
 
       if (event === 'INITIAL_SESSION') {
         clearTimeout(fallback)
-        // Fire-and-forget profile refresh — cache already unblocks routing instantly
-        if (session) loadProfiles().catch(e => console.error('loadProfiles failed', e))
+        if (session) {
+          loadProfiles().catch(e => {
+            console.error('loadProfiles failed', e)
+            setProfilesReady(true)  // unblock routing even if load fails/times out
+          })
+        } else {
+          setProfilesReady(true)  // no session = no profiles needed
+        }
         setLoading(false)
       } else if (event === 'SIGNED_IN') {
-        // Block routing until profiles load (prevents SetupPage flash for new logins)
-        try { await loadProfiles() } catch (e) { console.error('loadProfiles failed', e) }
+        try { await loadProfiles() } catch (e) {
+          console.error('loadProfiles failed', e)
+          setProfilesReady(true)
+        }
       } else if (event === 'SIGNED_OUT') {
         setProfiles([])
         setProfilesReady(false)
