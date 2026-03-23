@@ -115,38 +115,57 @@ export function computeTotals(entries) {
 
 // ── Midnight auto-reset ───────────────────────────────────────────────────────
 //
-// Watches for the local date changing and snapshots the previous day's totals
-// into daily_history via the snapshot_daily_history() Postgres function.
-//
-// If the app is closed overnight, the snapshot runs on next open.
-// For guaranteed midnight archival, also set up a pg_cron job in Supabase:
-//   SELECT cron.schedule('nightly-snapshot','59 23 * * *','SELECT snapshot_daily_history()');
+// Snapshots completed days into daily_history via snapshot_daily_history().
+// Persists the last-active date in localStorage so any days missed while the
+// app was closed are backfilled on the next open.
+
+const LAST_ACTIVE_DATE_KEY = 'we-ate-last-active-date'
 
 export function useMidnightReset() {
   const [currentDate, setCurrentDate] = useState(getLocalDate)
 
   useEffect(() => {
-    let lastDate = getLocalDate()
+    const today = getLocalDate()
+    const stored = localStorage.getItem(LAST_ACTIVE_DATE_KEY)
+    let lastDate = (stored && stored <= today) ? stored : today
+
+    // Record today immediately so future opens can detect missed days
+    localStorage.setItem(LAST_ACTIVE_DATE_KEY, today)
 
     const check = async () => {
-      const today = getLocalDate()
-      if (today === lastDate) return
+      const now = getLocalDate()
+      if (now === lastDate) return
 
-      // New day detected — snapshot yesterday before rolling over
-      try {
-        await supabase.rpc('snapshot_daily_history', { snapshot_date: lastDate })
-      } catch (err) {
-        console.warn('[We Ate] snapshot_daily_history failed:', err)
+      // Snapshot every completed day from lastDate up to (not including) today
+      const [ly, lm, ld] = lastDate.split('-').map(Number)
+      const d = new Date(ly, lm - 1, ld)
+      const [ny, nm, nd] = now.split('-').map(Number)
+      const end = new Date(ny, nm - 1, nd)
+
+      while (d < end) {
+        const dateStr = [
+          d.getFullYear(),
+          String(d.getMonth() + 1).padStart(2, '0'),
+          String(d.getDate()).padStart(2, '0'),
+        ].join('-')
+        try {
+          await supabase.rpc('snapshot_daily_history', { snapshot_date: dateStr })
+        } catch (err) {
+          console.warn('[We Ate] snapshot_daily_history failed:', err)
+          break
+        }
+        d.setDate(d.getDate() + 1)
       }
 
-      lastDate = today
-      setCurrentDate(today)
+      localStorage.setItem(LAST_ACTIVE_DATE_KEY, now)
+      lastDate = now
+      setCurrentDate(now)
     }
 
-    check() // Run immediately to catch overnight opens
+    check() // Run immediately to backfill any missed days
     const id = setInterval(check, 30_000) // Then every 30 s
     return () => clearInterval(id)
-  }, []) // Intentionally empty — runs once on mount
+  }, [])
 
   return currentDate
 }
