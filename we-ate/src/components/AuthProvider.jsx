@@ -33,32 +33,17 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('getSession timeout')), 5000)
-    )
-    Promise.race([supabase.auth.getSession(), timeout])
-      .then(async ({ data: { session } }) => {
-        setSession(session)
-        setLoading(false)  // unblock routing as soon as session is known
-        try {
-          if (session) await loadProfiles()
-        } catch (e) {
-          console.error('loadProfiles failed', e)
-          if (session) setProfilesReady(true)  // don't block forever on error
-        }
-      })
-      .catch((e) => {
-        console.error('getSession failed or timed out', e)
-        setLoading(false)
-      })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
-      if (session) {
+
+      if (event === 'INITIAL_SESSION') {
+        // Fire-and-forget profile refresh — cache already unblocks routing instantly
+        if (session) loadProfiles().catch(e => console.error('loadProfiles failed', e))
+        setLoading(false)
+      } else if (event === 'SIGNED_IN') {
+        // Block routing until profiles load (prevents SetupPage flash for new logins)
         try { await loadProfiles() } catch (e) { console.error('loadProfiles failed', e) }
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         setProfiles([])
         setProfilesReady(false)
         setActiveProfileIdState(null)
