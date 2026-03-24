@@ -82,16 +82,28 @@ function MacroTotals({ entries, profileId, getTargets }) {
         Daily totals
       </p>
 
-      <div className="flex items-end gap-1.5">
-        <span
-          className="font-display text-4xl font-medium leading-none"
-          style={{ color: calColor }}
-        >
-          {Math.round(totals.calories)}
-        </span>
-        <span className="font-body text-xs text-warm-gray pb-0.5">
-          / {targets.calories} kcal
-        </span>
+      <div className="flex items-end justify-between">
+        <div className="flex items-end gap-1.5">
+          <span
+            className="font-display text-4xl font-medium leading-none"
+            style={{ color: calColor }}
+          >
+            {Math.round(totals.calories)}
+          </span>
+          <span className="font-body text-xs text-warm-gray pb-0.5">
+            / {targets.calories} kcal
+          </span>
+        </div>
+        {targets.calories > 0 && (() => {
+          const remaining = targets.calories - totals.calories
+          return (
+            <span className="font-body text-xs pb-0.5" style={{ color: remaining < 0 ? '#EF4444' : '#8A7E74' }}>
+              {remaining < 0
+                ? `${Math.round(Math.abs(remaining))} over`
+                : `${Math.round(remaining)} left`}
+            </span>
+          )
+        })()}
       </div>
 
       <MacroBar label="Calories" value={totals.calories} target={targets.calories} unit=" kcal" />
