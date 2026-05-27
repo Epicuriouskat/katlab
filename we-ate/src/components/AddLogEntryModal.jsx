@@ -477,7 +477,7 @@ export default function AddLogEntryModal({
   useEffect(() => {
     if (open) {
       setSearch('')
-      setTab('quick')
+      setTab('quickadd')
       setAdding(null)
       setSelectedItem(null)
       setPortion(1)
