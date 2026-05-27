@@ -73,7 +73,7 @@ CREATE TABLE daily_log_entries (
   profile_id     UUID           NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   meal_slot      TEXT           NOT NULL CHECK (meal_slot IN ('breakfast', 'lunch', 'dinner', 'snacks')),
   recipe_id      UUID           REFERENCES recipes(id)     ON DELETE SET NULL,
-  quick_item_id  UUID           REFERENCES quick_items(id) ON DELETE SET NULL,
+  quick_item_id  UUID           REFERENCES quick_items(id) ON DELETE CASCADE,
   quantity       NUMERIC(5, 2)  NOT NULL DEFAULT 1,
   logged_at      TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
   -- inline quick-add fields
