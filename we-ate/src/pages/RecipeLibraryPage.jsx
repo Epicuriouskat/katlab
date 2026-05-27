@@ -18,7 +18,13 @@ function QuickItemRow({ item, onEdit, onDeleted }) {
 
   const handleDelete = async () => {
     setDeleting(true)
-    await supabase.from('quick_items').delete().eq('id', item.id)
+    const { error } = await supabase.from('quick_items').delete().eq('id', item.id)
+    if (error) {
+      console.error('Delete failed:', error)
+      setDeleting(false)
+      setConfirming(false)
+      return
+    }
     onDeleted()
     setDeleting(false)
   }
@@ -72,7 +78,7 @@ function QuickItemRow({ item, onEdit, onDeleted }) {
           </button>
         </div>
       ) : (
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <div className="flex gap-1 shrink-0">
           <button
             onClick={() => onEdit(item)}
             className="w-7 h-7 rounded-lg flex items-center justify-center text-warm-gray hover:text-charcoal hover:bg-parchment transition-all"
