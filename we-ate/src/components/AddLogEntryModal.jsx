@@ -239,11 +239,41 @@ function PortionView({ itemName, itemType, baseNut, portion, onPortionChange, on
 // ── Quick Add inline form ─────────────────────────────────────────────────────
 
 function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
-  const [form, setForm]     = useState(EMPTY_QA)
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState(null)
+  const { profiles }          = useAuth()
+  const [form, setForm]       = useState(EMPTY_QA)
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState(null)
+  const [type, setType]       = useState('split')
+  const [splitPct, setSplitPct] = useState(50)
+
+  const canSplit = profiles.length >= 2
+  const p0 = profiles[0]
+  const p1 = profiles[1]
 
   const set = (field) => (e) => setForm((p) => ({ ...p, [field]: e.target.value }))
+
+  const splitVal = (raw, frac, isInt = false) => {
+    if (raw === '' || raw == null) return null
+    const v = Number(raw) * frac
+    return isInt ? Math.round(v) : Math.round(v * 10) / 10
+  }
+
+  const makeRow = (pid, frac) => ({
+    date,
+    profile_id:    pid,
+    meal_slot:     mealSlot,
+    recipe_id:     null,
+    quick_item_id: null,
+    quantity:      1,
+    is_quick_add:  true,
+    qa_name:       form.name.trim(),
+    qa_calories:   splitVal(form.calories, frac, true) ?? 0,
+    qa_protein:    splitVal(form.protein,  frac)       ?? 0,
+    qa_carbs:      splitVal(form.carbs,    frac)       ?? 0,
+    qa_fat:        splitVal(form.fat,      frac)       ?? 0,
+    qa_fiber:      form.fiber  !== '' ? splitVal(form.fiber,  frac)       : null,
+    qa_sodium:     form.sodium !== '' ? splitVal(form.sodium, frac, true) : null,
+  })
 
   const handleAdd = async () => {
     if (!form.name.trim() || !form.calories) {
@@ -253,23 +283,33 @@ function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
     setSaving(true)
     setError(null)
     try {
-      const { error: e } = await supabase.from('daily_log_entries').insert({
-        date,
-        profile_id:    profileId,
-        meal_slot:     mealSlot,
-        recipe_id:     null,
-        quick_item_id: null,
-        quantity:      1,
-        is_quick_add:  true,
-        qa_name:       form.name.trim(),
-        qa_calories:   Number(form.calories) || 0,
-        qa_protein:    Number(form.protein)  || 0,
-        qa_carbs:      Number(form.carbs)    || 0,
-        qa_fat:        Number(form.fat)      || 0,
-        qa_fiber:      form.fiber  !== '' ? Number(form.fiber)  : null,
-        qa_sodium:     form.sodium !== '' ? Number(form.sodium) : null,
-      })
-      if (e) throw e
+      if (type === 'split' && canSplit) {
+        const p0Frac = splitPct / 100
+        const p1Frac = (100 - splitPct) / 100
+        const { error: e } = await supabase.from('daily_log_entries').insert([
+          makeRow(p0.id, p0Frac),
+          makeRow(p1.id, p1Frac),
+        ])
+        if (e) throw e
+      } else {
+        const { error: e } = await supabase.from('daily_log_entries').insert({
+          date,
+          profile_id:    profileId,
+          meal_slot:     mealSlot,
+          recipe_id:     null,
+          quick_item_id: null,
+          quantity:      1,
+          is_quick_add:  true,
+          qa_name:       form.name.trim(),
+          qa_calories:   Number(form.calories) || 0,
+          qa_protein:    Number(form.protein)  || 0,
+          qa_carbs:      Number(form.carbs)    || 0,
+          qa_fat:        Number(form.fat)      || 0,
+          qa_fiber:      form.fiber  !== '' ? Number(form.fiber)  : null,
+          qa_sodium:     form.sodium !== '' ? Number(form.sodium) : null,
+        })
+        if (e) throw e
+      }
       onAdded()
       onClose()
     } catch (err) {
@@ -278,6 +318,9 @@ function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
       setSaving(false)
     }
   }
+
+  const p0CalPreview = form.calories ? Math.round(Number(form.calories) * splitPct / 100) : null
+  const p1CalPreview = form.calories ? Math.round(Number(form.calories) * (100 - splitPct) / 100) : null
 
   return (
     <>
@@ -303,6 +346,32 @@ function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
             className="input-field"
           />
         </div>
+
+        {canSplit && (
+          <div>
+            <label className="label">Serving type</label>
+            <div className="flex gap-2">
+              {[
+                { id: 'single', label: 'Single', Icon: User },
+                { id: 'split',  label: 'Split',  Icon: Users },
+              ].map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setType(id)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-body font-medium border transition-all duration-150 ${
+                    type === id
+                      ? 'bg-terracotta text-cream border-terracotta'
+                      : 'bg-cream text-warm-gray border-parchment hover:border-terracotta-lighter'
+                  }`}
+                >
+                  <Icon size={13} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -330,6 +399,47 @@ function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
             </div>
           ))}
         </div>
+
+        {type === 'split' && canSplit && (
+          <div className="rounded-2xl border border-parchment bg-cream/50 p-4 space-y-3">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-[10px] font-body font-semibold block mb-1.5" style={{ color: p0.accent }}>
+                  {p0.name} %
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={splitPct}
+                  onChange={(e) => {
+                    const v = Math.min(99, Math.max(1, Number(e.target.value) || 1))
+                    setSplitPct(v)
+                  }}
+                  className="input-field py-2 text-center text-sm"
+                  style={{ borderColor: p0.border }}
+                />
+                <div className="text-center text-xs font-body text-warm-gray mt-1.5">
+                  {p0CalPreview != null ? `${p0CalPreview} kcal` : '—'}
+                </div>
+              </div>
+              <div className="flex items-center pt-5 text-warm-gray-light font-body text-sm">/</div>
+              <div className="flex-1">
+                <label className="text-[10px] font-body font-semibold block mb-1.5" style={{ color: p1.accent }}>
+                  {p1.name} %
+                </label>
+                <div
+                  className="input-field py-2 text-center text-sm text-warm-gray bg-parchment/40 select-none"
+                >
+                  {100 - splitPct}
+                </div>
+                <div className="text-center text-xs font-body text-warm-gray mt-1.5">
+                  {p1CalPreview != null ? `${p1CalPreview} kcal` : '—'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="px-5 py-4 border-t border-parchment shrink-0">
@@ -343,7 +453,7 @@ function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
               <span className="w-4 h-4 border-2 border-cream/40 border-t-cream rounded-full animate-spin" />
               Adding…
             </span>
-          ) : 'Add to log'}
+          ) : type === 'split' && canSplit ? 'Split & add to log' : 'Add to log'}
         </button>
       </div>
     </>
