@@ -467,7 +467,7 @@ export default function AddLogEntryModal({
 }) {
   const { profiles } = useAuth()
   const [search, setSearch]             = useState('')
-  const [tab, setTab]                   = useState('quick')
+  const [tab, setTab]                   = useState('quickadd')
   const [adding, setAdding]             = useState(null)
   const [selectedItem, setSelectedItem] = useState(null)  // { id, name, type, baseNut }
   const [portion, setPortion]           = useState(1)
