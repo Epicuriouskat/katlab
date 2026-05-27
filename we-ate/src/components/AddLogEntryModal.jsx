@@ -245,6 +245,7 @@ function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
   const [error, setError]     = useState(null)
   const [type, setType]       = useState('split')
   const [splitPct, setSplitPct] = useState(50)
+  const [splitPctStr, setSplitPctStr] = useState('50')
 
   const canSplit = profiles.length >= 2
   const p0 = profiles[0]
@@ -284,8 +285,8 @@ function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
     setError(null)
     try {
       if (type === 'split' && canSplit) {
-        const p0Frac = splitPct / 100
-        const p1Frac = (100 - splitPct) / 100
+        const p0Frac = splitPct / 50
+        const p1Frac = (100 - splitPct) / 50
         const { error: e } = await supabase.from('daily_log_entries').insert([
           makeRow(p0.id, p0Frac),
           makeRow(p1.id, p1Frac),
@@ -319,8 +320,8 @@ function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
     }
   }
 
-  const p0CalPreview = form.calories ? Math.round(Number(form.calories) * splitPct / 100) : null
-  const p1CalPreview = form.calories ? Math.round(Number(form.calories) * (100 - splitPct) / 100) : null
+  const p0CalPreview = form.calories ? Math.round(Number(form.calories) * splitPct / 50) : null
+  const p1CalPreview = form.calories ? Math.round(Number(form.calories) * (100 - splitPct) / 50) : null
 
   return (
     <>
@@ -409,12 +410,20 @@ function QuickAddView({ profileId, mealSlot, date, onAdded, onClose }) {
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min="1"
                   max="99"
-                  value={splitPct}
+                  value={splitPctStr}
                   onChange={(e) => {
-                    const v = Math.min(99, Math.max(1, Number(e.target.value) || 1))
-                    setSplitPct(v)
+                    setSplitPctStr(e.target.value)
+                    const n = parseInt(e.target.value, 10)
+                    if (!isNaN(n) && n >= 1 && n <= 99) setSplitPct(n)
+                  }}
+                  onBlur={() => {
+                    const n = parseInt(splitPctStr, 10)
+                    const clamped = isNaN(n) ? 50 : Math.min(99, Math.max(1, n))
+                    setSplitPct(clamped)
+                    setSplitPctStr(String(clamped))
                   }}
                   className="input-field py-2 text-center text-sm"
                   style={{ borderColor: p0.border }}
